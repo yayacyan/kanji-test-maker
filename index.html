@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>漢字テストメーカー</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="paper.css" />
+    <style id="pageStyle"></style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true"><span>漢</span></div>
+          <div>
+            <h1 class="brand-name">漢字テストメーカー</h1>
+            <div class="brand-sub">小学校 漢字テスト作成</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span id="saveState" class="save-state" aria-live="polite">この端末に自動保存</span>
+          <button id="printBtn" class="primary-btn print-btn" type="button"><span>印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
+        </div>
+      </header>
+
+      <main class="workspace" id="workspace" data-view="edit">
+        <!-- ============ 編集 ============ -->
+        <section class="pane pane-edit" id="paneEdit">
+          <section class="hero">
+            <div class="hero-copy">
+              <p class="eyebrow">小学校の漢字テスト作成</p>
+              <h2>縦書きの漢字テストを、<br />その場で作る。</h2>
+              <p class="hero-sub">学年から選ぶ・自分で入れる・写真から。できたら、そのまま印刷できます。</p>
+            </div>
+            <div class="hero-sample" aria-hidden="true">
+              <span class="hs-no">①</span>
+              <span class="hs-text"><ruby><span class="hs-box">巣</span><rt>す</rt></ruby>を作る。</span>
+              <span class="hs-cap">見本</span>
+            </div>
+            <span class="save-state save-state-mobile" aria-hidden="true">この端末に自動保存</span>
+          </section>
+
+          <div class="quick-actions" id="quickActions" role="tablist" aria-label="つくり方をえらぶ">
+            <button class="tile" type="button" data-goto="draw" role="tab"><span class="glyph" aria-hidden="true">学</span><strong>学年から</strong><span class="sub">小1〜6を自動で</span></button>
+            <button class="tile" type="button" data-goto="custom" role="tab"><span class="glyph" aria-hidden="true">書</span><strong>自分で</strong><span class="sub">打つ・貼り付け</span></button>
+            <button class="tile" type="button" data-goto="import" role="tab"><span class="glyph" aria-hidden="true">写</span><strong>写真・AI</strong><span class="sub">写真やAIから</span></button>
+            <button class="tile tile-preview" type="button" data-goto="preview"><strong>プレビュー</strong></button>
+          </div>
+
+          <!-- 写真・AI から取り込む -->
+          <details class="tool" id="tool-import" name="tool">
+            <summary>写真・AIから取り込む</summary>
+            <div class="tool-body">
+              <h3 class="sub-title">写真から読み取る</h3>
+              <div class="grid-two">
+                <button type="button" id="ocrCameraBtn" class="soft-btn full-width">写真を撮る</button>
+                <button type="button" id="ocrPickBtn" class="soft-btn full-width">画像を選ぶ</button>
+              </div>
+              <input id="ocrCamera" type="file" accept="image/*" capture="environment" hidden />
+              <input id="ocrFile" type="file" accept="image/*" hidden />
+
+              <details class="mini-details">
+                <summary>読み取りの設定</summary>
+                <div class="grid-two">
+                  <label>
+                    <span class="field-label">読み取り方法</span>
+                    <select id="ocrProvider" class="select-input"></select>
+                  </label>
+                  <label class="check-row">
+                    <input type="checkbox" id="ocrVertical" />
+                    <span>縦書きの写真のときはチェック</span>
+                  </label>
+                </div>
+              </details>
+              <img id="ocrThumb" class="ocr-thumb" alt="読み取り中の写真" hidden />
+              <div id="ocrStatus" class="status-box" role="status">写真を選ぶと、読み取りを始めます。</div>
+
+              <label class="field-label mt-12" for="ocrText">読み取り結果（この欄で直接直せます）</label>
+              <textarea id="ocrText" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。&#10;歩く,あるく,公園を歩く。&#10;山 川 空"></textarea>
+              <div id="ocrPreview" class="import-preview"></div>
+              <div class="grid-two mt-12">
+                <label>
+                  <span class="field-label">問題の種類</span>
+                  <select id="ocrType" class="select-input" data-import-type="ocr"></select>
+                </label>
+                <button type="button" id="ocrAddBtn" class="primary-btn full-width align-end">問題に追加</button>
+              </div>
+
+              <hr class="divider" />
+
+              <h3 class="sub-title">AIに問題を作ってもらう</h3>
+              <p class="hint">お使いのAI（ChatGPTなど）に「お願い文」を貼り付けて、返ってきた答えをこの下の欄に貼り付けます。</p>
+              <label class="field-label" for="aiTheme">テーマ（なくてもOK）</label>
+              <input id="aiTheme" class="text-input" type="text" placeholder="例：春の生きもの、学校生活" />
+              <button type="button" id="copyPromptBtn" class="soft-btn full-width mt-12">AIへのお願い文をコピー</button>
+              <details class="mini-details">
+                <summary>コピーされる内容を見る</summary>
+                <textarea id="aiPromptText" class="text-input" rows="8" readonly></textarea>
+              </details>
+
+              <label class="field-label mt-12" for="aiInput">AIの答えを貼り付け（形式：漢字（よみ）／例文）</label>
+              <textarea id="aiInput" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。"></textarea>
+              <div id="aiPreview" class="import-preview"></div>
+              <div class="grid-two mt-12">
+                <label>
+                  <span class="field-label">問題の種類</span>
+                  <select id="aiType" class="select-input" data-import-type="ai"></select>
+                </label>
+                <button type="button" id="aiAddBtn" class="primary-btn full-width align-end">問題に追加</button>
+              </div>
+            </div>
+          </details>
+
+          <!-- 学年から問題を作る -->
+          <details class="tool" id="tool-draw" name="tool" open>
+            <summary>学年から問題を作る</summary>
+            <div class="tool-body">
+              <label class="field-label" for="gradeRange">学年</label>
+              <select id="gradeRange" class="select-input">
+                <option value="1">小学1年</option>
+                <option value="2">小学2年</option>
+                <option value="3">小学3年</option>
+                <option value="4">小学4年</option>
+                <option value="5">小学5年</option>
+                <option value="6">小学6年</option>
+                <option value="1-3">小学1〜3年</option>
+                <option value="1-6">小学1〜6年</option>
+              </select>
+
+              <span class="field-label mt-12">問題の数</span>
+              <div class="pill-group" id="countPills">
+                <button type="button" class="pill-btn" data-count="10">10問</button>
+                <button type="button" class="pill-btn" data-count="20">20問</button>
+                <button type="button" class="pill-btn" data-count="30">30問</button>
+                <button type="button" class="pill-btn" data-count="50">50問</button>
+              </div>
+
+              <p class="hint size-hint">答えのマスを8mm以上にする目安：A4縦は約10問、A4横は約14問、A3横は約28問まで。</p>
+
+              <span class="field-label mt-12">問題の種類（複数選べます）</span>
+              <div class="pill-group" id="typePills"></div>
+              <div class="sticky-action">
+                <button type="button" id="generateBtn" class="primary-btn full-width">問題を作る</button>
+              </div>
+              <div id="drawStatus" class="status-box" role="status">同じ漢字は重ならないように選びます。</div>
+
+              <div id="typeCounts" class="type-counts" aria-live="polite"></div>
+
+              <details class="mini-details">
+                <summary>くわしい設定</summary>
+                <label class="check-row">
+                  <input type="checkbox" id="genReplace" />
+                  <span>前回に作った問題を入れ替える（自分で作った問題・写真・AIの問題は残します）</span>
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" id="avoidRecent" />
+                  <span>以前に出した漢字はなるべくさける</span>
+                </label>
+                <p class="hint">出した漢字の記録：<strong id="historyCount">0</strong>字
+                  <button type="button" id="clearHistoryBtn" class="inline-action">記録を消す</button></p>
+              </details>
+
+            </div>
+          </details>
+
+          <!-- 自分で問題を作る -->
+          <details class="tool" id="tool-custom" name="tool">
+            <summary>自分で問題を作る</summary>
+            <div class="tool-body">
+              <div class="grid-two stack-sm">
+                <label>
+                  <span class="field-label">問題の種類</span>
+                  <select id="customType" class="select-input"></select>
+                </label>
+                <label>
+                  <span class="field-label">答えを書く場所</span>
+                  <select id="customStyle" class="select-input"></select>
+                </label>
+              </div>
+
+              <div class="grid-two mt-12">
+                <label>
+                  <span class="field-label">漢字</span>
+                  <input id="customKanji" class="text-input" type="text" autocomplete="off" placeholder="巣" />
+                </label>
+                <label>
+                  <span class="field-label">よみがな</span>
+                  <input id="customReading" class="text-input" type="text" autocomplete="off" placeholder="す" />
+                </label>
+              </div>
+
+              <label class="field-label mt-12" for="customSentence">例文</label>
+              <textarea id="customSentence" class="text-input" rows="2" placeholder="くもの巣がはる。"></textarea>
+
+              <label class="field-label mt-12" for="customAnswer">答え（空欄なら自動で入ります）</label>
+              <input id="customAnswer" class="text-input" type="text" autocomplete="off" />
+
+              <div class="grid-two mt-12">
+                <button type="button" id="addQuestionBtn" class="primary-btn full-width">追加</button>
+                <button type="button" id="resetFormBtn" class="ghost-btn full-width">クリア</button>
+              </div>
+
+              <hr class="divider" />
+
+              <h3 class="sub-title">まとめて貼り付け</h3>
+              <p class="hint">1行に1問。<strong>漢字だけ書いても大丈夫</strong>です（例：巣 歩 観）。小学校の漢字なら、よみがなと例文が自動で入ります。次の形も使えます。</p>
+              <pre class="format-sample">巣（す）／くもの巣がはる。
+巣,す,くもの巣がはる。
+花の（　）が出る。|芽</pre>
+              <textarea id="bulkText" class="text-input" rows="5" aria-label="まとめて貼り付け" placeholder="巣 歩 観"></textarea>
+              <div id="bulkPreview" class="import-preview"></div>
+              <div class="grid-two mt-12">
+                <label>
+                  <span class="field-label">問題の種類</span>
+                  <select id="bulkType" class="select-input" data-import-type="bulk"></select>
+                </label>
+                <button type="button" id="bulkAddBtn" class="primary-btn full-width align-end">問題に追加</button>
+              </div>
+            </div>
+          </details>
+
+          <!-- 問題一覧 -->
+          <section class="panel" id="listPanel">
+            <div class="list-head">
+              <h2>問題一覧 <span id="listCount" class="count-badge">0</span></h2>
+              <div class="list-tools">
+                <button type="button" id="shuffleBtn" class="inline-action">シャッフル</button>
+                <button type="button" id="sortGradeBtn" class="inline-action">学年順</button>
+                <button type="button" id="clearAllBtn" class="inline-action danger">全部消す</button>
+              </div>
+            </div>
+            <label class="bulk-type">
+              <span class="field-label">全部の問題の種類を、まとめて変える</span>
+              <select id="bulkTypeSelect" class="select-input" aria-label="全部の問題の種類をまとめて変える"></select>
+            </label>
+            <div id="listNotice" class="list-notice" role="status" hidden></div>
+            <div id="questionList" class="question-list"></div>
+
+            <details class="mini-details sets">
+              <summary>名前をつけて保存・呼び出し（学年や回ごとに使い分ける）</summary>
+              <p class="hint">いまの問題と用紙の設定を、名前をつけて保存できます。（例：小3 第5回 A ／ 小5 第5回 B）</p>
+              <div class="set-save">
+                <input id="setName" class="text-input" type="text" maxlength="30" placeholder="例：小3 第5回 A" aria-label="セットの名前" />
+                <button type="button" id="saveSetBtn" class="soft-btn">保存</button>
+              </div>
+              <div id="setList" class="set-list"></div>
+            </details>
+
+            <details class="mini-details backup">
+              <summary>保存・読み込み（別の端末で使うとき）</summary>
+              <p class="hint">問題と設定は、この端末のブラウザに自動で保存されています。別のスマホやパソコンで使うときは、ファイルに書き出して移してください。</p>
+              <div class="grid-two">
+                <button type="button" id="exportBtn" class="soft-btn full-width">ファイルに書き出す</button>
+                <button type="button" id="importBtn" class="soft-btn full-width">ファイルから読み込む</button>
+              </div>
+              <input id="importFile" type="file" accept=".json,application/json" hidden />
+            </details>
+          </section>
+        </section>
+
+        <!-- ============ プレビュー ============ -->
+        <section class="pane pane-preview" id="panePreview">
+          <div class="preview-bar">
+            <div class="seg sheet-seg" id="sheetSeg" role="group" aria-label="用紙の種類">
+              <button type="button" data-sheet="question">問題用紙</button>
+              <button type="button" data-sheet="answer">解答用紙</button>
+            </div>
+            <label class="bar-field">
+              <span class="sr-only">用紙サイズ</span>
+              <select id="printFormat" class="select-input" aria-label="用紙サイズ">
+                <option value="A4-portrait">A4 縦</option>
+                <option value="A4-landscape">A4 横</option>
+                <option value="A3-landscape">A3 横</option>
+              </select>
+            </label>
+            <div class="zoom-group" role="group" aria-label="拡大縮小">
+              <button type="button" id="zoomOut" class="ghost-btn" aria-label="縮小">−</button>
+              <span id="zoomLabel" class="zoom-label" aria-live="polite">100%</span>
+              <button type="button" id="zoomIn" class="ghost-btn" aria-label="拡大">＋</button>
+              <button type="button" id="zoomFit" class="ghost-btn fit-btn">画面に合わせる</button>
+            </div>
+            <button type="button" id="printBtn2" class="primary-btn print-btn"><span>印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
+          </div>
+
+          <details class="layout-settings">
+            <summary>用紙と並び方の設定</summary>
+            <div class="settings-panel">
+            <div class="settings-grid">
+              <label>
+                <span class="field-label">テストの名前</span>
+                <input id="setTitle" class="text-input" type="text" data-setting="title" />
+              </label>
+              <label>
+                <span class="field-label">見出しの補足（学年・単元など）</span>
+                <input id="setSubtitle" class="text-input" type="text" data-setting="subtitle" placeholder="例：3年 第2回" />
+              </label>
+              <label>
+                <span class="field-label">並べる段の数</span>
+                <select id="setTiers" class="select-input" data-setting="tiers">
+                  <option value="auto">おまかせ</option>
+                  <option value="1">1段</option>
+                  <option value="2">2段</option>
+                  <option value="3">3段</option>
+                  <option value="4">4段</option>
+                  <option value="5">5段</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-label">書体</span>
+                <select id="setFont" class="select-input" data-setting="font">
+                  <option value="kyokasho">教科書体</option>
+                  <option value="mincho">明朝体</option>
+                  <option value="gothic">ゴシック体</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-label">1問あたりの点数（合計を「点／◯点」と表示）</span>
+                <input id="setPoints" class="text-input" type="number" inputmode="numeric" min="0" max="100" data-setting="pointsEach" placeholder="例：2" />
+              </label>
+              <div class="check-stack">
+                <label class="check-row"><input type="checkbox" data-setting="showInstructions" /><span>問題の種類ごとの説明文を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showName" /><span>名前の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showClass" /><span>学年・組の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showDate" /><span>日付の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showScore" /><span>点数の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="readingHint" /><span>例文の空欄に、読みがなを小さく付ける</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="printBoth" /><span>印刷するとき、問題用紙と解答用紙を続けて出す</span></label>
+              </div>
+            </div>
+            <p class="hint">PDFにするとき：印刷の画面で「PDFに保存」を選びます（用紙サイズは自動で合います）。</p>
+            </div>
+          </details>
+
+          <div id="sheetInfo" class="sheet-info" role="status"></div>
+          <p class="print-hint">できたら右上の「印刷 / PDF」を押します。印刷画面で「PDFとして保存」を選ぶと、ファイルにも残せます。</p>
+
+          <div class="sheet-viewport" id="sheetViewport" tabindex="0" aria-label="テスト用紙のプレビュー（横にスクロールできます）">
+            <div id="paperHost" class="paper-preview"></div>
+          </div>
+        </section>
+      </main>
+
+      <nav class="view-tabs" id="viewTabs" aria-label="表示切り替え">
+        <button type="button" class="view-btn" data-view="edit">編集<span id="tabCount" class="tab-count"></span></button>
+        <button type="button" class="view-btn" data-view="preview">プレビュー</button>
+        <button type="button" class="view-btn" data-view="answer">解答</button>
+      </nav>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    </div>
+
+    <!-- 印刷専用（画面では非表示。印刷時だけここが出力される） -->
+    <div id="printArea" aria-hidden="true"></div>
+
+    <script src="kanji-db.js"></script>
+    <script src="import.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

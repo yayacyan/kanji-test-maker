@@ -1,0 +1,244 @@
+/* 試験用紙（画面・印刷共通。寸法はすべて mm）— 画面の見た目とは独立。ここは印刷結果そのもの */
+
+/* ---------- 試験用紙（画面・印刷共通。寸法はすべて mm） ---------- */
+
+.paper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--W);
+  height: calc(var(--H) - 0.6mm); /* 印刷で次のページに送られないよう、画面と同じ高さで測る */
+  padding: 10mm 10mm 13mm;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  font-size: var(--f);
+  line-height: 1.3;
+}
+
+.paper-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 1.5mm 6mm;
+  min-height: var(--head, 15mm);
+  padding-bottom: 2mm;
+  border-bottom: 0.4mm solid #111;
+  font-size: 5mm;
+}
+.paper-title { font-size: 6.4mm; font-weight: 700; letter-spacing: 0.18em; }
+.stamp {
+  display: inline-block;
+  margin-left: 4mm;
+  padding: 0 2mm;
+  border: 0.5mm solid #d33;
+  border-radius: 1mm;
+  color: #d33;
+  font-size: 4.6mm;
+  letter-spacing: 0.1em;
+}
+.paper-count { font-size: 4.2mm; color: #444; }
+.paper-fields { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 1.5mm 8mm; margin-left: auto; font-size: 4.6mm; }
+.paper-sub { font-size: 4.4mm; color: #333; }
+.of-total { margin-left: 1mm; font-size: 4.2mm; }
+.paper-fields .field { display: inline-flex; align-items: baseline; gap: 1.5mm; }
+.fill { display: inline-block; width: 46mm; border-bottom: 0.3mm solid #111; }
+.fill.short { width: 22mm; }
+
+.paper-ins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6mm 5mm;
+  padding-top: 1.6mm;
+  font-size: 3.9mm;
+  line-height: 1.5;
+  color: #222;
+}
+.ins-item b { margin-right: 1.5mm; }
+
+.paper-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 3mm; padding-top: 1.5mm; }
+.paper-empty { margin: auto; color: #888; font-size: 4.4mm; }
+
+/* 1段 = 右から左へ問題を並べる */
+.tier {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+.tier + .tier { border-top: 0.25mm dashed #777; padding-top: 2mm; }
+
+.q {
+  flex: 0 0 calc(100% / var(--cols));
+  min-width: 0;
+  display: flex;
+  flex-direction: row-reverse; /* 右＝問題文、左＝解答欄 */
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 0.35em;
+  padding: 0 0.3em;
+  border-left: 0.2mm solid #c9c9c9;
+  overflow: hidden;
+}
+.tier .q:first-child { border-right: 0; }
+
+.q-main {
+  flex: none;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+}
+.q-no {
+  display: inline-block;
+  writing-mode: horizontal-tb;
+  width: 1.5em; height: 1.5em;
+  margin-bottom: 0.55em;
+  border: 0.3mm solid #111;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1.4em;
+  text-align: center;
+  letter-spacing: 0;
+}
+.tcy { text-combine-upright: all; }
+
+/* 出題する語に線を引く（縦書きでは右側に線） */
+.tgt {
+  border-right: 0.3mm solid #111;
+  padding-right: 0.08em;
+  margin-right: 0.08em;
+}
+.mas-kanji { font-size: 1.4em; line-height: 1.15; }
+.mas-yomi { font-size: 0.6em; color: #333; }
+
+/* 線を引いた語 ＋ そのすぐ左横の答え欄（方格）。縦書きの列の中に、語と欄が横並びで入る */
+.nb { white-space: nowrap; }
+.tgt-col { display: block; }
+.tgt-wrap {
+  display: inline-flex;
+  flex-direction: column;   /* 縦書きでは「列」方向＝右から左：語が右、欄が左 */
+  align-items: flex-start;
+  gap: 0.18em;
+  min-height: calc(var(--n) * 1.25em); /* 欄の高さぶんは文の長さに数える（列の下端で欄がはみ出さないように） */
+  vertical-align: top;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  writing-mode: horizontal-tb;
+  padding-top: 0.15em;
+}
+.side .lineans { margin-left: 0; }
+.side .kakko, .side .lineans { height: calc((var(--n) + 0.6) * 1.2em); }
+
+/* なぞり書き：薄い字を上からなぞる */
+.trace-ch {
+  position: absolute; inset: 0; z-index: 1;
+  display: grid; place-items: center;
+  line-height: 1;
+  color: #b9b9b9;
+}
+
+/* 例文穴埋めの四角 */
+.box {
+  position: relative;
+  display: inline-block;
+  width: 1.25em; height: 1.25em;
+  margin: 0.08em 0;
+  border: 0.3mm solid #111;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 1;
+  vertical-align: middle;
+  text-indent: 0;
+  writing-mode: horizontal-tb;
+}
+.box .ans-ch { line-height: 1.05em; }
+.box::before, .box::after { content: ""; position: absolute; background: #9db3c2; }
+.box::before { left: 50%; top: 0; bottom: 0; width: 0.2mm; margin-left: -0.1mm; }
+.box::after { top: 50%; left: 0; right: 0; height: 0.2mm; margin-top: -0.1mm; }
+.is-answer .box::before, .is-answer .box::after { display: none; }
+.hint-ruby { ruby-align: center; }
+.hint-ruby rt { font-size: 0.6em; color: #333; }
+
+/* 解答欄 */
+.q-ans {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1.75em;
+  writing-mode: horizontal-tb;
+}
+.cell {
+  position: relative;
+  display: block;
+  width: 1.25em; height: 1.25em;
+  margin-top: -0.3mm;
+  border: 0.3mm solid #111;
+  background: #fff;
+  text-align: center;
+  line-height: 1.2em;
+}
+/* 十字の補助線（印刷でも消えにくい実線） */
+.cell::before, .cell::after { content: ""; position: absolute; background: #9db3c2; }
+.cell::before { left: 50%; top: 0; bottom: 0; width: 0.2mm; margin-left: -0.1mm; }
+.cell::after { top: 50%; left: 0; right: 0; height: 0.2mm; margin-top: -0.1mm; }
+/* 解答用紙では補助線を消す（「二」が「三」に見えないように） */
+.is-answer .cell::before, .is-answer .cell::after { display: none; }
+.cell.practice { width: 1.25em; height: 1.25em; }
+.ans-ch { color: #d22; font-weight: 700; }
+.cell .ans-ch { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; line-height: 1; }
+.box .ans-ch { display: block; }
+
+.kakko, .lineans {
+  display: block;
+  position: relative;
+  width: 1.25em;
+  height: calc((var(--n) + 1) * 1.2em);
+  writing-mode: horizontal-tb;
+}
+.kakko::before, .kakko::after {
+  content: "";
+  position: absolute; left: 12%; right: 12%;
+  height: 0.6em;
+  border: 0.3mm solid #111;
+}
+.kakko::before { top: 0; border-bottom: 0; border-radius: 0.6em 0.6em 0 0; }
+.kakko::after { bottom: 0; border-top: 0; border-radius: 0 0 0.6em 0.6em; }
+.lineans { border-left: 0.3mm solid #111; margin-left: 0.6em; }
+.q-ans.free-lines { flex-direction: row-reverse; align-items: stretch; }
+.q-ans.free-lines .lineans { margin-left: 0.9em; }
+.ans-vert {
+  position: absolute; top: 0.6em; left: 0; right: 0;
+  writing-mode: vertical-rl;
+  text-align: center;
+  color: #d22;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.lineans .ans-vert { left: 0.15em; right: auto; top: 0; }
+
+.free-ans {
+  flex: 1 1 0;      /* 枠の高さの残りいっぱいを使い、はみ出す分は次の列へ折り返す */
+  min-height: 0;
+  display: block;
+  writing-mode: vertical-rl;
+  color: #d22;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.lineans.fill, .kakko.fill { flex: 1 1 0; min-height: 0; height: auto; }
+
+.paper-brand {
+  position: absolute;
+  right: 10mm; bottom: 5mm;
+  font-size: 3.4mm;
+  letter-spacing: 0.12em;
+  color: #333;
+}
