@@ -191,7 +191,8 @@
       const c = parts[2] || '';
       if (a && b) {
         if (RE_BLANK.test(a)) {
-          return { items: [makeItem({ kanji: b, reading: RE_KANA_ONLY.test(c) ? c : '', sentence: a.replace(RE_BLANK, b), answer: b }, opts)] };
+          // 案内にある「花の（　）が出る。|芽」は、□に書く問題（種類を選んでいないとき）
+          return { items: [makeItem({ kanji: b, reading: RE_KANA_ONLY.test(c) ? c : '', sentence: a.replace(RE_BLANK, b), answer: b, type: !opts.type || opts.type === 'auto' ? 'sentence' : '' }, opts)] };
         }
         if (a.includes(b)) {
           return { items: [makeItem({ kanji: b, reading: RE_KANA_ONLY.test(c) ? c : '', sentence: a, answer: b }, opts)] };

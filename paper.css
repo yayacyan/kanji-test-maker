@@ -242,3 +242,12 @@
   letter-spacing: 0.12em;
   color: #333;
 }
+
+/* 送りがな：字数がわからない1つの長い枠（十字の補助線は付けない） */
+.box.okuri-one { height: calc(var(--k, 2) * 1.25em); }
+.box.okuri-one::before, .box.okuri-one::after { display: none; }
+.box.okuri-one .ans-okuri {
+  position: absolute; inset: 0.1em 0 0 0;
+  writing-mode: vertical-rl; text-orientation: upright; line-height: 1.05;
+  display: block; margin: 0 auto; width: 1.05em; color: #d22;
+}

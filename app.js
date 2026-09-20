@@ -62,6 +62,8 @@
       showScore: true,
       font: 'kyokasho',
       readingHint: true,
+      okuriCells: false,
+      practiceReps: '4',
       showInstructions: true,
       showClass: false,
       showDate: false,
@@ -291,8 +293,8 @@
   const NOT_OKURI = new Set(['王さま', '田んぼ', '子ども', '名まえ', '友だち', '原っぱ', '割ると', '済んだら', '久しぶり', '精いっぱい']);
   function isOkuriEntry(e) {
     const p = KI.okuriParts(e.word);
-    // 自動で出すのは「漢字1字＋送りがな（3字まで）」の語だけ。「王さま」「子ども」など送りがなでないものは除く
-    return !!p && chars(p.stem).length === 1 && p.okuri.length <= 3 && !NOT_OKURI.has(e.word) &&
+    // 自動で出すのは「漢字1字＋送りがな（2字まで。枠の大きさを全問そろえるため）」の語だけ。「王さま」「子ども」など送りがなでないものは除く
+    return !!p && chars(p.stem).length === 1 && p.okuri.length <= 2 && !NOT_OKURI.has(e.word) &&
       e.reading.length > p.okuri.length && e.reading.endsWith(p.okuri) && e.sentence.includes(e.word);
   }
 
@@ -325,27 +327,60 @@
   }
 
   /**
-   * 書き取りの答え（漢字）が、同じ用紙の別の問題文にそのまま出てしまうと答えが見えてしまう。
-   * そういう組み合わせを、同じ学年の別の漢字に入れ替えてなるべく減らす。
+   * 書き取りの答え（漢字）が、同じ用紙の別の問題文や、用紙上部の説明文に出てしまうと、答えが見えてしまう。
+   * 語ぜんたいが出るのはもちろん、答えの一部の漢字（「病気」の「気」など）が出るのも、なるべく避ける。
+   * そういう組み合わせを、同じ学年の別の漢字に入れ替えて減らす（完全にゼロにできるとは限らない）。
    */
+  const INSTRUCTION_KANJI = '問線漢字書読送手本同右小';
+  const KANJI_CHAR = /[\u4e00-\u9fff々]/g;
+
   function repairLeaks(items, candidates) {
-    const needsKanji = (it) => it.type === 'kaki' || it.type === 'sentence' || it.type === 'okuri';
-    const leaking = (list, it) => needsKanji(it) && list.some((o) => o !== it && o.entry.sentence.includes(it.entry.word));
-    const countLeaks = (list) => list.filter((it) => leaking(list, it)).length;
+    const allKana = items.length > 0 && items.every((it) => it.entry.grade <= 2); // 説明文がかなだけのとき
+    const answerKanji = (it) => (it.type === 'kaki' || it.type === 'sentence' ? (it.entry.word.match(KANJI_CHAR) || []) : []);
+    const visibleOf = (it) => {
+      const e = it.entry;
+      if (it.type === 'yomi') return e.sentence;
+      if (it.type === 'mas' || it.type === 'trace') return e.word;
+      const p = it.type === 'okuri' ? KI.okuriParts(e.word) : null;
+      return e.sentence.replace(e.word, p ? p.stem : '');
+    };
+    const score = (list) => {
+      const vis = list.map(visibleOf);
+      let total = 0;
+      list.forEach((it, i) => {
+        const cs = answerKanji(it);
+        if (!cs.length) return;
+        vis.forEach((v, j) => {
+          if (j === i) return;
+          cs.forEach((c) => { if (v.includes(c)) total += 1; });
+          if (v.includes(it.entry.word)) total += 4;
+        });
+        if (!allKana) cs.forEach((c) => { if (INSTRUCTION_KANJI.includes(c)) total += 1; });
+      });
+      return total;
+    };
+    // 入れ替えの対象は、漏れに関わっている問題（答えの側も、見える側も）
+    const involved = (list, i) => {
+      const vis = list.map(visibleOf);
+      const mine = answerKanji(list[i]);
+      if (mine.some((c) => vis.some((v, j) => j !== i && v.includes(c)))) return true;
+      if (!allKana && mine.some((c) => INSTRUCTION_KANJI.includes(c))) return true;
+      return list.some((o, k) => k !== i && answerKanji(o).some((c) => vis[i].includes(c)));
+    };
     let list = items.slice();
-    let leaks = countLeaks(list);
-    for (let pass = 0; pass < 3 && leaks > 0; pass += 1) {
-      for (let i = 0; i < list.length && leaks > 0; i += 1) {
-        if (!leaking(list, list[i])) continue;
+    let best = score(list);
+    for (let pass = 0; pass < 4 && best > 0; pass += 1) {
+      for (let i = 0; i < list.length && best > 0; i += 1) {
+        if (!involved(list, i)) continue;
         const grade = list[i].entry.grade;
         const pool = shuffle(candidates.filter((e) => e.grade === grade &&
           (list[i].type !== 'okuri' || isOkuriEntry(e)) &&
-          !list.some((it) => it.entry.kanji === e.kanji || it.entry.word === e.word))).slice(0, 30);
+          !list.some((it) => it.entry.kanji === e.kanji || it.entry.word === e.word))).slice(0, 40);
         for (const cand of pool) {
           const trial = list.slice();
           trial[i] = { entry: cand, type: list[i].type };
-          const count = countLeaks(trial);
-          if (count < leaks) { list = trial; leaks = count; break; }
+          const value = score(trial);
+          if (value < best) { list = trial; best = value; break; }
         }
       }
     }
@@ -538,7 +573,7 @@
     const gradeOptions = ['<option value="">なし</option>'].concat([1, 2, 3, 4, 5, 6].map((g) =>
       '<option value="' + g + '"' + (q.grade === g ? ' selected' : '') + '>小学' + g + '年</option>')).join('');
     return '<div class="qi-editor">' +
-      '<div class="grid-two">' +
+      '<div class="grid-two qi-types">' +
         '<label><span class="field-label">問題の種類</span><select class="select-input" data-field="type">' + optionsHtml(TYPES, TYPE_LABELS, q.type) + '</select></label>' +
         '<label><span class="field-label">答えを書く場所</span><select class="select-input" data-field="style">' + optionsHtml(STYLES, STYLE_LABELS, q.style) + '</select></label>' +
       '</div>' +
@@ -664,6 +699,19 @@
    *   seg: { t:'text'|'tgt'|'box'|'big'|'small', v, n, hint, chars }
    *   ans: { kind:'cells'|'free'|'practice', chars:[...], count }
    */
+  /** 送りがなの枠の高さ（マス数）：既定は2。送りがなが3字以上の問題が1つでもあれば、字数が枠の大きさでわからないよう、全問その高さにそろえる */
+  function okuriBoxCells() {
+    let m = 2;
+    state.questions.forEach((q) => {
+      if (q.type !== 'okuri') return;
+      const p = KI.okuriParts(q.kanji);
+      const a = String(q.answer || '');
+      const ok = p ? (a.startsWith(p.stem) ? a.slice(p.stem.length) : (a || p.okuri)) : a;
+      m = Math.max(m, Math.min(6, chars(ok).length));
+    });
+    return m;
+  }
+
   function describe(q) {
     const answer = q.answer || KI.defaultAnswer(q);
     const answerChars = chars(answer);
@@ -728,7 +776,12 @@
         const parts = KI.okuriParts(q.kanji);
         const stem = parts ? parts.stem : q.kanji;
         const okChars = chars(parts && answer.startsWith(stem) ? answer.slice(stem.length) : answer);
-        const seg = { t: 'okuri', stem, n: Math.min(Math.max(okChars.length, 1), 6), chars: okChars, hint: q.reading };
+        // 読みは「漢字の部分」だけを付ける（全体の読みを付けると、送りがながそのまま見えてしまう）
+        const okStr = okChars.join('');
+        const stemReading = okStr && q.reading && q.reading.endsWith(okStr) && q.reading.length > okStr.length ? q.reading.slice(0, -okStr.length) : '';
+        const n = Math.min(Math.max(okChars.length, 1), 6);
+        // 既定は、字数がわからない1つの長い枠（□が2つだと「変る」でなく「変わる」とわかってしまう）。枠の高さは、用紙の全問でそろえる
+        const seg = { t: 'okuri', stem, n: state.okuriCells ? n : okuriBoxCells(), one: !state.okuriCells, chars: okChars, hint: stemReading };
         if (loc) { pushText(loc.before); segs.push(seg); pushText(loc.after); } else { pushText(q.sentence); segs.push(seg); }
         ans = null;
         break;
@@ -737,8 +790,13 @@
       case 'trace':
         segs.push({ t: 'big', v: q.kanji || answer });
         if (q.reading) segs.push({ t: 'small', v: '（' + q.reading + '）' });
-        ans = { kind: 'practice', chars: answerChars, count: Math.min(10, Math.max(1, answerChars.length) * Math.ceil(5 / Math.max(1, answerChars.length))),
-          trace: q.type === 'trace' };
+        // 練習マスの数 ＝ 字数 × 書く回数（1列に入る 10 マスまで）
+        ans = { kind: 'practice', chars: answerChars, trace: q.type === 'trace',
+          count: (() => {
+            const len = Math.max(1, answerChars.length);
+            const reps = Math.min(5, Math.max(1, Number(state.practiceReps) || 4));
+            return len * Math.max(1, Math.min(reps, Math.floor(10 / len)));
+          })() };
         break;
       default: // free
         pushText(q.sentence || q.kanji);
@@ -808,8 +866,10 @@
           : line;
       }
       case 'okuri': {
-        const base = esc(seg.stem) + boxesHtml(seg, answerMode);
-        return seg.hint && state.readingHint ? '<ruby class="hint-ruby">' + base + '<rt>' + esc(seg.hint) + '</rt></ruby>' : base;
+        const stem = seg.hint && state.readingHint ? '<ruby class="hint-ruby">' + esc(seg.stem) + '<rt>' + esc(seg.hint) + '</rt></ruby>' : esc(seg.stem);
+        if (!seg.one) return stem + boxesHtml(seg, answerMode);
+        return stem + '<span class="box okuri-one" style="--k:' + seg.n + '">' +
+          (answerMode ? '<span class="ans-okuri">' + esc(seg.chars.join('')) + '</span>' : '') + '</span>';
       }
       case 'big': return '<span class="mas-kanji">' + esc(seg.v) + '</span>';
       case 'small': return '<span class="mas-yomi">' + esc(seg.v) + '</span>';
@@ -833,7 +893,7 @@
       const count = Math.max(ans.chars.length, 2, Math.min(ans.count, lay.maxCells));
       const cells = Array.from({ length: count }, (_, i) =>
         '<span class="cell practice">' + (answerMode && ans.chars.length ? '<span class="ans-ch">' + esc(ans.chars[i % ans.chars.length]) + '</span>'
-          : (!answerMode && ans.trace && ans.chars.length && i < Math.max(ans.chars.length, 2) ? '<span class="trace-ch">' + esc(ans.chars[i % ans.chars.length]) + '</span>' : '')) + '</span>').join('');
+          : (!answerMode && ans.trace && ans.chars.length && i < ans.chars.length ? '<span class="trace-ch">' + esc(ans.chars[i % ans.chars.length]) + '</span>' : '')) + '</span>').join('');
       return '<div class="q-ans">' + cells + '</div>';
     }
     const free = ans.kind === 'free';
@@ -889,7 +949,7 @@
     sentence: '□に あてはまる 漢字を 書きましょう。',
     okuri: '□に 送りがなを 書きましょう。',
     mas: 'お手本の 漢字を、マスに くりかえし ていねいに 書きましょう。',
-    trace: 'うすい字を なぞってから、残りのマスにも 同じ字を 書きましょう。'
+    trace: 'うすい字を なぞってから、のこりのマスにも 同じ字を 書きましょう。'
   };
 
   /** 連続する同じ種類をまとめて、「問1〜10　説明」のリストにする（自由入力は問題文が説明を兼ねる） */
@@ -1038,7 +1098,7 @@
    */
   function fittedFont() {
     const key = JSON.stringify([state.questions, state.format, state.tiers, state.font, state.readingHint,
-      state.showInstructions, state.showClass, state.showDate]);
+      state.showInstructions, state.showClass, state.showDate, state.okuriCells, state.practiceReps]);
     if (fontCache.key === key) return fontCache.f;
     const items = state.showInstructions ? instructionItems(state.questions) : [];
     let f = computeLayout(state.questions.map(describe), instructionHeight(items, FORMATS[state.format].w - 20)).f;
@@ -1152,7 +1212,7 @@
     if (dupes.length) parts.push('問' + dupes[0].a + 'と問' + dupes[0].b + '（「' + dupes[0].kanji + '」）は同じ問題です' + (dupes.length > 1 ? '（ほか' + (dupes.length - 1) + '件）' : '') + '。');
     if (leaks.length) {
       parts.push(leaks.slice(0, 2).map((l) => '問' + l.a + 'の答え「' + l.kanji + '」が、問' + l.b + 'の問題に出ています').join('。') +
-        (leaks.length > 2 ? '（ほか' + (leaks.length - 2) + '件）' : '') + '。答えが見えてしまうので、どちらかを入れ替えるか消してください。');
+        (leaks.length > 2 ? '（ほか' + (leaks.length - 2) + '件）' : '') + '。答えが見えてしまうので、どちらかを入れ替えるか消すか、別のプリントに分けてください。');
     }
     return parts.join(' ');
   }
@@ -1272,6 +1332,8 @@
 
   function doPrint() {
     if (!state.questions.length) { toast('印刷する問題がありません。先に問題を作ってください。', 'warn'); return; }
+    const conflicts = conflictsText();
+    if (conflicts && !window.confirm('⚠ ' + conflicts + '\n\nこのまま印刷しますか？')) return;
     renderPrintArea();
     window.print();
   }
@@ -1549,9 +1611,89 @@
 
   // ---- コントロールの同期 ---------------------------------------------------
 
+  // 問題の種類は、名前だけでは違いが分かりにくいので、用紙に出る形の小さな絵と一言を添える
+  const TYPE_INFO = {
+    auto: { desc: '文を見て自動で選ぶ', thumb: '<span class="tv-word">自動</span>' },
+    kaki: { desc: 'ひらがなを漢字で書く', short: 'ひらがな→漢字',
+      thumb: '<span class="tv-t">くもの<i class="tv-u">す</i></span><i class="tv-b"></i>' },
+    yomi: { desc: '漢字の読みを書く', short: '漢字→ひらがな',
+      thumb: '<span class="tv-t">くもの<i class="tv-u">巣</i></span><i class="tv-b"></i>' },
+    sentence: { desc: '□に入る漢字を書く', short: '□に漢字を書く',
+      thumb: '<span class="tv-t">花の<i class="tv-b"></i>が</span>' },
+    okuri: { desc: '送りがなも書く', short: '送りがなを書く',
+      thumb: '<span class="tv-t"><ruby>借<rt>か</rt></ruby><i class="tv-b tv-tall"></i></span>' },
+    mas: { desc: 'お手本を見て練習する', short: 'お手本を練習',
+      thumb: '<span class="tv-t"><i class="tv-b tv-m">巣</i><i class="tv-b"></i><i class="tv-b"></i></span>' },
+    trace: { desc: 'うすい字をなぞる', short: 'うすい字をなぞる',
+      thumb: '<span class="tv-t"><i class="tv-b tv-g">巣</i><i class="tv-b tv-g">巣</i><i class="tv-b"></i></span>' },
+    free: { desc: '問題文を、そのまま出す', short: '問題文のまま',
+      thumb: '<span class="tv-word tv-dash">自由</span>' }
+  };
+
+  function typeCardInner(value, label, short) {
+    const info = TYPE_INFO[value] || { desc: '', thumb: '' };
+    return '<span class="tv" aria-hidden="true">' + info.thumb + '</span>' +
+      '<span class="tc-text"><span class="tc-name">' + esc(label).replace('（', '<wbr>（') + '</span>' +
+      '<span class="tc-desc">' + esc(short && info.short ? info.short : info.desc) + '</span></span>';
+  }
+
   function renderTypePills() {
     el.typePills.innerHTML = TYPES.map((t) =>
-      '<button type="button" class="pill-btn" data-type="' + t + '" aria-pressed="false">' + esc(TYPE_LABELS[t]) + '</button>').join('');
+      '<button type="button" class="pill-btn type-card" data-type="' + t + '" aria-pressed="false" title="' + esc(TYPE_INFO[t].desc) + '">' + typeCardInner(t, TYPE_LABELS[t], true) + '</button>').join('');
+  }
+
+  /**
+   * 種類の select（値の保管場所として残す）の上に、絵のカードで選ぶ部品を作る。
+   * 部品の値は select と同じ：クリックで select.value を変えて change を出す。
+   * compact のものは、いまの選択だけを見せ、「変える」で一覧を開く。
+   */
+  function buildTypePicker(host) {
+    const select = $(host.dataset.for);
+    const compact = host.classList.contains('is-compact');
+    const options = Array.from(select.options).map((o) => ({ value: o.value, label: o.textContent }));
+    host.innerHTML = '';
+    const list = document.createElement('div');
+    list.className = 'type-cards';
+    list.setAttribute('role', 'radiogroup');
+    list.setAttribute('aria-labelledby', host.dataset.label);
+    list.innerHTML = options.map((o) =>
+      '<button type="button" class="type-card" role="radio" aria-checked="false" data-value="' + esc(o.value) + '">' +
+      typeCardInner(o.value, o.label) + '</button>').join('');
+    let box = null;
+    if (compact) {
+      box = document.createElement('details');
+      box.className = 'type-fold';
+      box.innerHTML = '<summary class="type-now"></summary>';
+      box.appendChild(list);
+      host.appendChild(box);
+    } else {
+      host.appendChild(list);
+    }
+    const refresh = () => {
+      list.querySelectorAll('.type-card').forEach((b) => {
+        const on = b.dataset.value === select.value;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-checked', String(on));
+      });
+      if (box) {
+        const now = options.find((o) => o.value === select.value) || options[0];
+        box.querySelector('summary').innerHTML = typeCardInner(now.value, now.label) + '<span class="tc-change">変える</span>';
+      }
+    };
+    list.addEventListener('click', (event) => {
+      const b = event.target.closest('.type-card');
+      if (!b) return;
+      select.value = b.dataset.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      refresh();
+      if (box) box.open = false;
+    });
+    host.refreshPicker = refresh;
+    refresh();
+  }
+
+  function refreshTypePickers() {
+    document.querySelectorAll('.type-picker').forEach((h) => { if (h.refreshPicker) h.refreshPicker(); });
   }
 
   function fillSelect(select, values, labels) {
@@ -1584,6 +1726,7 @@
     el.ocrType.value = state.importTypes.ocr;
     el.aiType.value = state.importTypes.ai;
     el.bulkType.value = state.importTypes.bulk;
+    refreshTypePickers();
     document.querySelectorAll('[data-setting]').forEach((input) => {
       const value = state[input.dataset.setting];
       if (input.type === 'checkbox') input.checked = !!value;
@@ -1788,7 +1931,7 @@
       const b = event.target.closest('.pill-btn');
       if (!b) return;
       const set = new Set(state.gen.types);
-      if (set.has(b.dataset.type)) { if (set.size > 1) set.delete(b.dataset.type); else return; } else set.add(b.dataset.type);
+      if (set.has(b.dataset.type)) { if (set.size > 1) set.delete(b.dataset.type); else { toast('問題の種類は、少なくとも1つ選んでください', 'warn'); return; } } else set.add(b.dataset.type);
       state.gen.types = TYPES.filter((t) => set.has(t));
       resetCounts();
       syncControls();
@@ -1928,6 +2071,7 @@
     ['ocrType', 'aiType', 'bulkType'].forEach((id) => fillSelect(el[id], Object.keys(importTypes), importTypes));
     el.ocrProvider.innerHTML = Object.keys(KI.OCR_PROVIDERS).map((k) => '<option value="' + k + '">' + esc(KI.OCR_PROVIDERS[k].label) + '</option>').join('');
     renderTypePills();
+    document.querySelectorAll('.type-picker').forEach(buildTypePicker);
 
     const hadSaved = loadState();
     if (!state.gen.types.every((t) => Number.isFinite(Number(state.gen.counts[t])))) resetCounts();

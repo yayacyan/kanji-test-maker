@@ -80,13 +80,12 @@
               <label class="field-label mt-12" for="ocrText">読み取り結果（この欄で直接直せます）</label>
               <textarea id="ocrText" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。&#10;歩く,あるく,公園を歩く。&#10;山 川 空"></textarea>
               <div id="ocrPreview" class="import-preview"></div>
-              <div class="grid-two mt-12">
-                <label>
-                  <span class="field-label">問題の種類</span>
-                  <select id="ocrType" class="select-input" data-import-type="ocr"></select>
-                </label>
-                <button type="button" id="ocrAddBtn" class="primary-btn full-width align-end">問題に追加</button>
+              <div class="mt-12">
+                <span class="field-label" id="ocrTypeLabel">問題の種類</span>
+                <select id="ocrType" class="select-input" data-import-type="ocr" hidden aria-hidden="true" tabindex="-1"></select>
+                <div class="type-picker is-compact" data-for="ocrType" data-label="ocrTypeLabel"></div>
               </div>
+              <button type="button" id="ocrAddBtn" class="primary-btn full-width mt-12">問題に追加</button>
 
               <hr class="divider" />
 
@@ -103,13 +102,12 @@
               <label class="field-label mt-12" for="aiInput">AIの答えを貼り付け（形式：漢字（よみ）／例文）</label>
               <textarea id="aiInput" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。"></textarea>
               <div id="aiPreview" class="import-preview"></div>
-              <div class="grid-two mt-12">
-                <label>
-                  <span class="field-label">問題の種類</span>
-                  <select id="aiType" class="select-input" data-import-type="ai"></select>
-                </label>
-                <button type="button" id="aiAddBtn" class="primary-btn full-width align-end">問題に追加</button>
+              <div class="mt-12">
+                <span class="field-label" id="aiTypeLabel">問題の種類</span>
+                <select id="aiType" class="select-input" data-import-type="ai" hidden aria-hidden="true" tabindex="-1"></select>
+                <div class="type-picker is-compact" data-for="aiType" data-label="aiTypeLabel"></div>
               </div>
+              <button type="button" id="aiAddBtn" class="primary-btn full-width mt-12">問題に追加</button>
             </div>
           </details>
 
@@ -169,16 +167,15 @@
           <details class="tool" id="tool-custom" name="tool">
             <summary>自分で問題を作る</summary>
             <div class="tool-body">
-              <div class="grid-two stack-sm">
-                <label>
-                  <span class="field-label">問題の種類</span>
-                  <select id="customType" class="select-input"></select>
-                </label>
-                <label>
-                  <span class="field-label">答えを書く場所</span>
-                  <select id="customStyle" class="select-input"></select>
-                </label>
+              <div>
+                <span class="field-label" id="customTypeLabel">1問ずつ入れる問題の種類（できあがりの絵で選べます）</span>
+                <select id="customType" class="select-input" hidden aria-hidden="true" tabindex="-1"></select>
+                <div class="type-picker" data-for="customType" data-label="customTypeLabel"></div>
               </div>
+              <label class="mt-12 block-label">
+                <span class="field-label">答えを書く場所</span>
+                <select id="customStyle" class="select-input"></select>
+              </label>
 
               <div class="grid-two mt-12">
                 <label>
@@ -211,13 +208,12 @@
 花の（　）が出る。|芽</pre>
               <textarea id="bulkText" class="text-input" rows="5" aria-label="まとめて貼り付け" placeholder="巣 歩 観"></textarea>
               <div id="bulkPreview" class="import-preview"></div>
-              <div class="grid-two mt-12">
-                <label>
-                  <span class="field-label">問題の種類</span>
-                  <select id="bulkType" class="select-input" data-import-type="bulk"></select>
-                </label>
-                <button type="button" id="bulkAddBtn" class="primary-btn full-width align-end">問題に追加</button>
+              <div class="mt-12">
+                <span class="field-label" id="bulkTypeLabel">まとめて追加する問題の種類</span>
+                <select id="bulkType" class="select-input" data-import-type="bulk" hidden aria-hidden="true" tabindex="-1"></select>
+                <div class="type-picker is-compact" data-for="bulkType" data-label="bulkTypeLabel"></div>
               </div>
+              <button type="button" id="bulkAddBtn" class="primary-btn full-width mt-12">問題に追加</button>
             </div>
           </details>
 
@@ -319,6 +315,16 @@
                 <span class="field-label">1問あたりの点数（合計を「点／◯点」と表示）</span>
                 <input id="setPoints" class="text-input" type="number" inputmode="numeric" min="0" max="100" data-setting="pointsEach" placeholder="例：2" />
               </label>
+              <label>
+                <span class="field-label">練習マス・なぞり書きで、同じ字を書く回数（1列10マスまで）</span>
+                <select id="setReps" class="select-input" data-setting="practiceReps">
+                  <option value="1">1回</option>
+                  <option value="2">2回</option>
+                  <option value="3">3回</option>
+                  <option value="4">4回</option>
+                  <option value="5">5回</option>
+                </select>
+              </label>
               <div class="check-stack">
                 <label class="check-row"><input type="checkbox" data-setting="showInstructions" /><span>問題の種類ごとの説明文を入れる</span></label>
                 <label class="check-row"><input type="checkbox" data-setting="showName" /><span>名前の欄を入れる</span></label>
@@ -326,6 +332,7 @@
                 <label class="check-row"><input type="checkbox" data-setting="showDate" /><span>日付の欄を入れる</span></label>
                 <label class="check-row"><input type="checkbox" data-setting="showScore" /><span>点数の欄を入れる</span></label>
                 <label class="check-row"><input type="checkbox" data-setting="readingHint" /><span>例文の空欄に、読みがなを小さく付ける</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="okuriCells" /><span>送りがなのマスを字数どおりにする（字数から答えがわかります）</span></label>
                 <label class="check-row"><input type="checkbox" data-setting="printBoth" /><span>印刷するとき、問題用紙と解答用紙を続けて出す</span></label>
               </div>
             </div>
