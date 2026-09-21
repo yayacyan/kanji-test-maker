@@ -23,11 +23,11 @@
   const SOURCE_LABELS = { bank: '学年から作成', ocr: '写真', ai: 'AI', paste: '貼り付け', custom: '手入力' };
   const GRADE_GROUPS = {
     '1': [1], '2': [2], '3': [3], '4': [4], '5': [5], '6': [6],
-    '1-3': [1, 2, 3], '1-6': [1, 2, 3, 4, 5, 6]
+    '1-2': [1, 2], '1-3': [1, 2, 3], '1-6': [1, 2, 3, 4, 5, 6]
   };
   const RANGE_LABELS = {
     '1': '小学1年', '2': '小学2年', '3': '小学3年', '4': '小学4年', '5': '小学5年', '6': '小学6年',
-    '1-3': '小学1〜3年', '1-6': '小学1〜6年'
+    '1-2': '小学1〜2年', '1-3': '小学1〜3年', '1-6': '小学1〜6年'
   };
   const FORMATS = {
     'A4-portrait': { w: 210, h: 297, cap: 8, minCols: 5 },
@@ -925,7 +925,9 @@
   }
 
   function questionHtml(d, index, answerMode, lay) {
+    const sec = sectionTags()[index];
     return '<div class="q t-' + d.q.type + '">' +
+      (sec ? '<div class="q-sec">' + esc(sec[0]) + '<br>' + esc(sec[1]) + '</div>' : '') +
       '<div class="q-main"><span class="q-no">' + (index + 1) + '</span>' +
         '<span class="q-text">' + d.segs.map((s) => segHtml(s, answerMode)).join('') + '</span></div>' +
       answerColumnHtml(d, answerMode, lay) +
@@ -952,6 +954,38 @@
     trace: 'うすい字を なぞってから、のこりのマスにも 同じ字を 書きましょう。'
   };
 
+  // 種類が変わる最初の問題の上に付ける、「ここから ○○」の小さな札（種類のまとまりが2つ以上で、同じ種類が2か所に分かれていないときだけ。交錯しているときは上の説明文だけ）
+  const SECTION_LABELS = {
+    kanji: { kaki: '書き取り', yomi: '読みがな', sentence: '文中の□', okuri: '送りがな', mas: '練習マス', trace: 'なぞり' },
+    kana: { kaki: 'かきとり', yomi: 'よみがな', sentence: 'ぶんの□', okuri: 'おくりがな', mas: 'れんしゅう', trace: 'なぞり' }
+  };
+  let secCache = { key: '', tags: [] };
+
+  /** 問題ごとの札（なければ null）。[ '1行目', '2行目' ] */
+  function sectionTags() {
+    const qs = state.questions;
+    const key = state.showInstructions + '|' + qs.map((q) => q.type + (Number(q.grade) || 0)).join(',');
+    if (secCache.key === key) return secCache.tags;
+    const tags = qs.map(() => null);
+    if (state.showInstructions) {
+      const runs = [];
+      qs.forEach((q, i) => {
+        if (!INSTRUCTIONS[q.type]) return;
+        const last = runs[runs.length - 1];
+        if (last && last.type === q.type && last.end === i - 1) last.end = i;
+        else runs.push({ type: q.type, start: i, end: i });
+      });
+      // 同じ種類が2か所に分かれている（交錯している）ときは、札を付けない
+      const interleaved = new Set(runs.map((r) => r.type)).size < runs.length;
+      if (runs.length >= 2 && !interleaved) {
+        const kana = qs.length > 0 && qs.every((q) => Number(q.grade) >= 1 && Number(q.grade) <= 2);
+        runs.slice(1).forEach((r) => { tags[r.start] = ['ここから', SECTION_LABELS[kana ? 'kana' : 'kanji'][r.type]]; });
+      }
+    }
+    secCache = { key, tags };
+    return tags;
+  }
+
   /** 連続する同じ種類をまとめて、「問1〜10　説明」のリストにする（自由入力は問題文が説明を兼ねる） */
   function instructionItems(questions) {
     const grades = questions.map((q) => Number(q.grade) || 0);
@@ -964,18 +998,39 @@
       if (last && last.type === q.type && last.end === i - 1) { last.end = i; last.hint = last.hint || !!q.reading; }
       else runs.push({ type: q.type, start: i, end: i, hint: !!q.reading });
     });
-    // 種類が細かく入れ替わるとき、または問題が多くて紙面に余裕がないとき（30問超）は、種類ごとに1回だけにまとめる
-    const compact = runs.length > 8 || (runs.length > 5 && questions.length > 30); // 種類が細かく入れ替わるときは、範囲を付けず種類ごとに1回だけ
-    const seen = new Set();
     const items = [];
+    const hintText = (r) => {
+      let text = texts[r.type];
+      if (r.type === 'sentence' && state.readingHint && r.hint) text += kana ? '（□の みぎの ちいさい じは よみがなです）' : '（□の右の小さい字は 読みがなです）';
+      if (r.type === 'okuri' && state.readingHint) text += kana ? '（かん字の みぎの ちいさい じは よみがなです）' : '（右の小さい字は 読みがなです）';
+      return text;
+    };
+    // 同じ種類が離れた場所にも出るとき（交錯）は、種類ごとに「問1・3・5〜6」と番号をまとめて1行にする
+    if (new Set(runs.map((r) => r.type)).size < runs.length) {
+      const byType = new Map();
+      runs.forEach((r) => {
+        const g = byType.get(r.type) || { type: r.type, hint: false, spans: [] };
+        g.hint = g.hint || r.hint;
+        g.spans.push(r.start === r.end ? String(r.start + 1) : (r.start + 1) + '〜' + (r.end + 1));
+        byType.set(r.type, g);
+      });
+      byType.forEach((g) => {
+        const label = '問' + g.spans.join('・');
+        const text = hintText(g);
+        // 番号が長くて1行に収まらないときは、番号の行と説明の行を分ける（途中で折り返して読みにくくならないように）
+        items.push({ label, text, stack: chars(label + text).length > 40 });
+      });
+      return items;
+    }
+    // 問題が多くて紙面に余裕がないとき（30問超で6種類）は、範囲を付けず種類ごとに1回だけ
+    const compact = runs.length > 5 && questions.length > 30;
+    const seen = new Set();
     runs.forEach((r) => {
       if (compact) {
         if (seen.has(r.type)) return;
         seen.add(r.type);
       }
-      let text = texts[r.type];
-      if (r.type === 'sentence' && state.readingHint && r.hint) text += kana ? '（□の みぎの ちいさい じは よみがなです）' : '（□の右の小さい字は 読みがなです）';
-      if (r.type === 'okuri' && state.readingHint) text += kana ? '（かん字の みぎの ちいさい じは よみがなです）' : '（右の小さい字は 読みがなです）';
+      const text = hintText(r);
       const label = compact ? '' : (r.start === r.end ? '問' + (r.start + 1) : '問' + (r.start + 1) + '〜' + (r.end + 1));
       items.push({ label, text });
     });
@@ -985,7 +1040,7 @@
   function instructionHtml(items) {
     if (!items.length) return '';
     return '<div class="paper-ins">' + items.map((it) =>
-      '<span class="ins-item">' + (it.label ? '<b>' + esc(it.label) + '</b>' : '') + esc(it.text) + '</span>').join('') + '</div>';
+      '<span class="ins-item' + (it.stack ? ' stack' : '') + '">' + (it.label ? '<b>' + esc(it.label) + '</b>' : '') + esc(it.text) + '</span>').join('') + '</div>';
   }
 
   /** 説明文が何行になるか（3.9mm の文字を幅いっぱいに詰める）から、必要な高さ(mm)を見積もる */
@@ -995,6 +1050,18 @@
     let used = 0;
     items.forEach((it) => {
       const w = (chars(it.label + it.text).length) * 4.0 + 5;
+      if (it.stack) { // 番号の行＋説明の行
+        if (used) lines += 1;
+        lines += Math.ceil(chars(it.text).length * 4.0 / bodyW);
+        used = bodyW;
+        return;
+      }
+      if (w > bodyW) { // 1項目が1行に入らないとき（交錯で番号が長いなど）は、折り返した行数も数える
+        if (used) lines += 1;
+        lines += Math.ceil(w / bodyW) - 1;
+        used = bodyW;
+        return;
+      }
       if (used && used + w > bodyW) { lines += 1; used = 0; }
       used += w;
     });
@@ -1030,15 +1097,19 @@
     const colW = bodyW / cols;
 
     // 全問がこの文字サイズで収まるか（長い文は次の列へ折り返す前提で、幅と高さを数える）
+    const tags = sectionTags();
     const fits = (f) => {
-      const firstCol = (tierH - 1.5 * f) / f; // 1列目は番号ぶん短い
-      const nextCol = tierH / f;
-      return descs.every((d) => {
+      return descs.every((d, i) => {
+        // 札のある段は、番号の高さがそろうよう、その段の全問の上に札ぶんの余白をあける
+        const t0 = Math.floor(i / perTier) * perTier;
+        const pad = tags.length === descs.length && tags.slice(t0, t0 + perTier).some(Boolean) ? 2.6 * Math.max(0.6 * f, Math.min(2.4, (f - 2.8) * 12)) + 0.34 * f : 0;
+        const firstCol = (tierH - pad - 1.5 * f) / f; // 1列目は番号ぶん短い
+        const nextCol = (tierH - pad) / f;
         const textCols = d.textLen <= firstCol ? 1 : 1 + Math.ceil((d.textLen - firstCol) / nextCol);
         const ruby = d.segs.some((seg) => seg.hint) && state.readingHint ? 0.6 * f : 0;
         const ansW = d.ans ? (d.ans.kind === 'free' ? (colW >= 8 * f ? 3.4 : 2.2) : 1.75) * f : 0;
         const sideW = d.segs.some((seg) => seg.side) ? 1.5 * f : 0; // 語の横に付く欄の幅
-        const ansH = d.ans ? 1.75 * f + d.ans.count * 1.3 * f : 0;
+        const ansH = d.ans ? pad + 1.75 * f + d.ans.count * 1.3 * f : 0;
         return textCols * 1.6 * f + ruby + ansW + sideW + 0.6 * f <= colW && ansH <= tierH;
       });
     };
@@ -1140,7 +1211,9 @@
       const rows = [];
       for (let t = 0; t < lay.tiers; t += 1) {
         const slice = descs.slice(t * lay.perTier, (t + 1) * lay.perTier);
-        rows.push('<div class="tier">' + slice.map((d, i) => questionHtml(d, t * lay.perTier + i, answerMode, lay)).join('') + '</div>');
+        const tags = sectionTags();
+        const tierHasTag = slice.some((d, i) => tags[t * lay.perTier + i]);
+        rows.push('<div class="tier' + (tierHasTag ? ' has-sec' : '') + '">' + slice.map((d, i) => questionHtml(d, t * lay.perTier + i, answerMode, lay)).join('') + '</div>');
       }
       body = rows.join('');
     }
@@ -1229,8 +1302,8 @@
     let warn = false;
     if (writes && cell < 7.5) {
       const rec = recommendCount(descs);
-      text += '　小学生が鉛筆で書くには小さめです（8mm以上がめやす）。' +
-        (rec && rec < descs.length ? 'いまの用紙なら、約' + rec + '問までにすると8mm以上になります。' : '') +
+      text += '　小学生が鉛筆で書くには小さめです。' +
+        (rec && rec < descs.length ? 'いまの用紙なら、約' + rec + '問までにすると書きやすい大きさになります。' : '') +
         (state.format === 'A3-landscape' ? '問題の数を減らすと大きくなります。'
           : state.format === 'A4-landscape' ? '問題の数を減らすか、A3にすると大きくなります。'
           : '問題の数を減らすか、A3や横向きにすると大きくなります。');
@@ -1612,12 +1685,15 @@
   // ---- コントロールの同期 ---------------------------------------------------
 
   // 問題の種類は、名前だけでは違いが分かりにくいので、用紙に出る形の小さな絵と一言を添える
+  // 答えを書く場所（マス／かっこ／線）の見た目。種類カードの絵も、これに合わせて変わる
+  const sideMark = (style, tall) => style === 'kakko' ? '<i class="tv-k' + (tall ? ' tv-tk' : '') + '"></i>'
+    : style === 'line' ? '<i class="tv-ln' + (tall ? ' tv-tk' : '') + '"></i>' : '<i class="tv-b' + (tall ? ' tv-tall' : '') + '"></i>';
   const TYPE_INFO = {
     auto: { desc: '文を見て自動で選ぶ', thumb: '<span class="tv-word">自動</span>' },
     kaki: { desc: 'ひらがなを漢字で書く', short: 'ひらがな→漢字',
-      thumb: '<span class="tv-t">くもの<i class="tv-u">す</i></span><i class="tv-b"></i>' },
+      thumb: (st) => '<span class="tv-t">くもの<i class="tv-u">す</i></span>' + sideMark(st) },
     yomi: { desc: '漢字の読みを書く', short: '漢字→ひらがな',
-      thumb: '<span class="tv-t">くもの<i class="tv-u">巣</i></span><i class="tv-b"></i>' },
+      thumb: (st) => '<span class="tv-t">くもの<i class="tv-u">巣</i></span>' + sideMark(st) },
     sentence: { desc: '□に入る漢字を書く', short: '□に漢字を書く',
       thumb: '<span class="tv-t">花の<i class="tv-b"></i>が</span>' },
     okuri: { desc: '送りがなも書く', short: '送りがなを書く',
@@ -1627,12 +1703,17 @@
     trace: { desc: 'うすい字をなぞる', short: 'うすい字をなぞる',
       thumb: '<span class="tv-t"><i class="tv-b tv-g">巣</i><i class="tv-b tv-g">巣</i><i class="tv-b"></i></span>' },
     free: { desc: '問題文を、そのまま出す', short: '問題文のまま',
-      thumb: '<span class="tv-word tv-dash">自由</span>' }
+      thumb: (st) => '<span class="tv-t">問題文</span>' + sideMark(st === 'kakko' ? 'kakko' : 'line', true) }
   };
 
-  function typeCardInner(value, label, short) {
-    const info = TYPE_INFO[value] || { desc: '', thumb: '' };
-    return '<span class="tv" aria-hidden="true">' + info.thumb + '</span>' +
+  function typeThumb(value, style) {
+    const info = TYPE_INFO[value] || { thumb: '' };
+    return typeof info.thumb === 'function' ? info.thumb(style || 'mas') : info.thumb;
+  }
+
+  function typeCardInner(value, label, short, style) {
+    const info = TYPE_INFO[value] || { desc: '' };
+    return '<span class="tv" aria-hidden="true">' + typeThumb(value, style) + '</span>' +
       '<span class="tc-text"><span class="tc-name">' + esc(label).replace('（', '<wbr>（') + '</span>' +
       '<span class="tc-desc">' + esc(short && info.short ? info.short : info.desc) + '</span></span>';
   }
@@ -1651,6 +1732,8 @@
     const select = $(host.dataset.for);
     const compact = host.classList.contains('is-compact');
     const options = Array.from(select.options).map((o) => ({ value: o.value, label: o.textContent }));
+    // 「自分で」の種類カードは、「答えを書く場所」の選択（マス／かっこ／線）に合わせて絵を変える
+    const styleOf = () => (host.dataset.for === 'customType' && el.customStyle ? el.customStyle.value : 'mas');
     host.innerHTML = '';
     const list = document.createElement('div');
     list.className = 'type-cards';
@@ -1658,7 +1741,7 @@
     list.setAttribute('aria-labelledby', host.dataset.label);
     list.innerHTML = options.map((o) =>
       '<button type="button" class="type-card" role="radio" aria-checked="false" data-value="' + esc(o.value) + '">' +
-      typeCardInner(o.value, o.label) + '</button>').join('');
+      typeCardInner(o.value, o.label, false, styleOf()) + '</button>').join('');
     let box = null;
     if (compact) {
       box = document.createElement('details');
@@ -1674,10 +1757,12 @@
         const on = b.dataset.value === select.value;
         b.classList.toggle('is-active', on);
         b.setAttribute('aria-checked', String(on));
+        const tv = b.querySelector('.tv');
+        if (tv) tv.innerHTML = typeThumb(b.dataset.value, styleOf());
       });
       if (box) {
         const now = options.find((o) => o.value === select.value) || options[0];
-        box.querySelector('summary').innerHTML = typeCardInner(now.value, now.label) + '<span class="tc-change">変える</span>';
+        box.querySelector('summary').innerHTML = typeCardInner(now.value, now.label, false, styleOf()) + '<span class="tc-change">変える</span>';
       }
     };
     list.addEventListener('click', (event) => {
@@ -1964,6 +2049,15 @@
     el.questionList.addEventListener('input', onListInput);
     el.questionList.addEventListener('change', onListChange);
     $('shuffleBtn').addEventListener('click', () => { state.questions = shuffle(state.questions); afterQuestionsChanged(); });
+    $('groupTypeBtn').addEventListener('click', () => {
+      const order = [];
+      state.questions.forEach((q) => { if (!order.includes(q.type)) order.push(q.type); });
+      state.questions = state.questions
+        .map((q, i) => ({ q, i }))
+        .sort((a, b) => order.indexOf(a.q.type) - order.indexOf(b.q.type) || a.i - b.i)
+        .map((x) => x.q);
+      afterQuestionsChanged();
+    });
     $('sortGradeBtn').addEventListener('click', () => {
       state.questions = state.questions
         .map((q, i) => ({ q, i }))
@@ -2066,6 +2160,7 @@
     $('bulkTypeSelect').innerHTML = '<option value="">種類を選ぶ…</option>' +
       TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">すべて「' + esc(TYPE_LABELS[t]) + '」にする</option>').join('');
     fillSelect(el.customStyle, STYLES, STYLE_LABELS);
+    el.customStyle.addEventListener('change', refreshTypePickers);
     const importTypes = { auto: '自動判定' };
     TYPES.forEach((t) => { importTypes[t] = TYPE_LABELS[t]; });
     ['ocrType', 'aiType', 'bulkType'].forEach((id) => fillSelect(el[id], Object.keys(importTypes), importTypes));

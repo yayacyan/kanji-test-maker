@@ -5,7 +5,7 @@
   --surface: #ffffff;
   --ink: #14110f;
   --muted: #5f5850;
-  --faint: #a39b90;
+  --faint: #857d72;
   --line: #e8e3d9;
   --field: #f3f0ea;
   --black: #14110f;
@@ -286,7 +286,7 @@ label { display: block; }
 .hs-text { writing-mode: vertical-rl; font-size: 1.25rem; line-height: 1.5; letter-spacing: 0.04em; }
 .hs-box { display: inline-block; width: 1.25em; height: 1.25em; border: 1.5px solid var(--ink); text-align: center; line-height: 1.2em; color: var(--accent); font-weight: 700; writing-mode: horizontal-tb; }
 .hero-sample rt { font-size: 0.5em; color: var(--muted); }
-.hs-cap { font-family: var(--font-ui); font-size: 0.62rem; color: var(--faint); letter-spacing: 0.04em; }
+.hs-cap { font-family: var(--font-ui); font-size: 0.72rem; color: var(--faint); letter-spacing: 0.04em; }
 
 /* つくり方をえらぶ（3つ） */
 .quick-actions {
@@ -425,7 +425,7 @@ details.tool:not([open]) { display: none; }
 .qi-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin: 0; }
 .qi-fields > div { min-width: 0; }
 .qi-fields .wide { grid-column: 1 / -1; }
-.qi-fields dt { font-size: 0.68rem; color: var(--faint); font-weight: 700; }
+.qi-fields dt { font-size: 0.74rem; color: var(--faint); font-weight: 700; }
 .qi-fields dd { margin: 0; overflow-wrap: anywhere; font-size: 0.94rem; }
 .qi-kanji { font-size: 1.3rem !important; font-weight: 800; }
 .qi-warn { margin-top: 8px; padding: 7px 10px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.78rem; }
@@ -678,3 +678,11 @@ details.tool:not([open]) { display: none; }
 .type-fold > summary .tc-change { grid-column: auto; grid-row: auto; }
 .tv-tall { height: 26px; }
 @media (max-width: 520px) { .qi-types { grid-template-columns: 1fr; } }
+
+/* 答えを書く場所（かっこ・線）の小さな絵 */
+.tv-k { position: relative; display: block; width: 13px; height: 22px; }
+.tv-k::before, .tv-k::after { content: ""; position: absolute; left: 0; right: 0; height: 7px; border: 1px solid var(--accent); }
+.tv-k::before { top: 0; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.tv-k::after { bottom: 0; border-top: 0; border-radius: 0 0 6px 6px; }
+.tv-ln { display: block; width: 0; height: 22px; border-left: 1.5px solid var(--accent); margin: 0 5px; }
+.tv-k.tv-tk, .tv-ln.tv-tk { height: 34px; }

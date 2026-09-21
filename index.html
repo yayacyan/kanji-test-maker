@@ -123,6 +123,7 @@
                 <option value="4">小学4年</option>
                 <option value="5">小学5年</option>
                 <option value="6">小学6年</option>
+                <option value="1-2">小学1〜2年</option>
                 <option value="1-3">小学1〜3年</option>
                 <option value="1-6">小学1〜6年</option>
               </select>
@@ -130,12 +131,13 @@
               <span class="field-label mt-12">問題の数</span>
               <div class="pill-group" id="countPills">
                 <button type="button" class="pill-btn" data-count="10">10問</button>
+                <button type="button" class="pill-btn" data-count="15">15問</button>
                 <button type="button" class="pill-btn" data-count="20">20問</button>
                 <button type="button" class="pill-btn" data-count="30">30問</button>
                 <button type="button" class="pill-btn" data-count="50">50問</button>
               </div>
 
-              <p class="hint size-hint">答えのマスを8mm以上にする目安：A4縦は約10問、A4横は約14問、A3横は約28問まで。</p>
+              <p class="hint size-hint">書きやすい大きさにするには、A4縦なら10問くらいまでがおすすめです（問題の種類や文の長さで変わります。作ったあと、大きさの目安が出ます）。</p>
 
               <span class="field-label mt-12">問題の種類（複数選べます）</span>
               <div class="pill-group" id="typePills"></div>
@@ -223,6 +225,7 @@
               <h2>問題一覧 <span id="listCount" class="count-badge">0</span></h2>
               <div class="list-tools">
                 <button type="button" id="shuffleBtn" class="inline-action">シャッフル</button>
+                <button type="button" id="groupTypeBtn" class="inline-action" title="同じ種類の問題を、続けて並べます">種類ごと</button>
                 <button type="button" id="sortGradeBtn" class="inline-action">学年順</button>
                 <button type="button" id="clearAllBtn" class="inline-action danger">全部消す</button>
               </div>

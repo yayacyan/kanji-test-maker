@@ -54,7 +54,10 @@
   line-height: 1.5;
   color: #222;
 }
+.ins-item { text-wrap: balance; } /* 長くて折り返すときも、「す）」だけが次の行に落ちないよう、行の長さをそろえる */
 .ins-item b { margin-right: 1.5mm; }
+.ins-item.stack { flex-basis: 100%; }
+.ins-item.stack b { display: block; margin-right: 0; }
 
 .paper-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 3mm; padding-top: 1.5mm; }
 .paper-empty { margin: auto; color: #888; font-size: 4.4mm; }
@@ -250,4 +253,15 @@
   position: absolute; inset: 0.1em 0 0 0;
   writing-mode: vertical-rl; text-orientation: upright; line-height: 1.05;
   display: block; margin: 0 auto; width: 1.05em; color: #d22;
+}
+
+/* 種類が変わる最初の問題の上に付ける「ここから ○○」の札。札のある段は、全問の番号の高さをそろえる */
+/* 札の文字は問題文の0.6倍。ただし用紙が細かくなっても読めるよう、2.4mm を下限にする（文字が2.8mm以下の極小の用紙では 0.6倍のまま） */
+.tier.has-sec { --sec-f: max(0.6em, min(2.4mm, calc((1em - 2.8mm) * 12))); }
+.tier.has-sec .q { position: relative; padding-top: calc(2.6 * var(--sec-f) + 0.34em); }
+.q-sec {
+  position: absolute; top: 0.1em; left: 0; right: 0;
+  writing-mode: horizontal-tb; white-space: nowrap;
+  font-size: var(--sec-f); line-height: 1.3; font-weight: 700; text-align: center;
+  border-bottom: 0.35mm solid #111; padding: 0 0 0.1em;
 }
