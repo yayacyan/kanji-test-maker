@@ -565,22 +565,24 @@
   }
 
   function warnHtml(q) {
-    const warns = KI.checkQuestion(q);
+    const warns = KI.checkQuestion(withOkuriWord(q));
     return warns.length ? '<div class="qi-warn">⚠ ' + esc(warns.join(' ／ ')) + '</div>' : '';
   }
 
   function editorHtml(q) {
     const gradeOptions = ['<option value="">なし</option>'].concat([1, 2, 3, 4, 5, 6].map((g) =>
       '<option value="' + g + '"' + (q.grade === g ? ' selected' : '') + '>小学' + g + '年</option>')).join('');
+    const hintCfg = CUSTOM_HINTS[q.type] || CUSTOM_HINTS.kaki;
     return '<div class="qi-editor">' +
       '<div class="grid-two qi-types">' +
         '<label><span class="field-label">問題の種類</span><select class="select-input" data-field="type">' + optionsHtml(TYPES, TYPE_LABELS, q.type) + '</select></label>' +
         '<label><span class="field-label">答えを書く場所</span><select class="select-input" data-field="style">' + optionsHtml(STYLES, STYLE_LABELS, q.style) + '</select></label>' +
       '</div>' +
       '<div class="grid-two">' +
-        '<label><span class="field-label">漢字</span><input class="text-input" type="text" data-field="kanji" value="' + esc(q.kanji) + '" autocomplete="off"></label>' +
-        '<label><span class="field-label">よみがな</span><input class="text-input" type="text" data-field="reading" value="' + esc(q.reading) + '" autocomplete="off"></label>' +
+        '<label><span class="field-label">' + esc(hintCfg.kanjiLabel) + '</span><input class="text-input" type="text" data-field="kanji" value="' + esc(q.kanji) + '" autocomplete="off" placeholder="' + esc(hintCfg.kanji) + '"></label>' +
+        '<label><span class="field-label">' + esc(hintCfg.readingLabel) + '</span><input class="text-input" type="text" data-field="reading" value="' + esc(q.reading) + '" autocomplete="off" placeholder="' + esc(hintCfg.reading) + '"></label>' +
       '</div>' +
+      '<p class="hint">' + esc(hintCfg.hint) + '</p>' +
       '<label><span class="field-label">例文</span><textarea class="text-input" rows="2" data-field="sentence">' + esc(q.sentence) + '</textarea></label>' +
       '<div class="grid-two">' +
         '<label><span class="field-label">答え</span><input class="text-input" type="text" data-field="answer" value="' + esc(q.answer) + '" autocomplete="off"></label>' +
@@ -704,7 +706,7 @@
     let m = 2;
     state.questions.forEach((q) => {
       if (q.type !== 'okuri') return;
-      const p = KI.okuriParts(q.kanji);
+      const p = KI.okuriParts(withOkuriWord(q).kanji);
       const a = String(q.answer || '');
       const ok = p ? (a.startsWith(p.stem) ? a.slice(p.stem.length) : (a || p.okuri)) : a;
       m = Math.max(m, Math.min(6, chars(ok).length));
@@ -712,7 +714,17 @@
     return m;
   }
 
+  /** 「漢字」欄に「借」だけ、「答え」欄に「りる」と入っていて、例文に「借りる」があるときは、「借りる」の入力として扱う */
+  function withOkuriWord(q) {
+    if (q.type !== 'okuri' || KI.okuriParts(q.kanji)) return q;
+    const k = String(q.kanji || '').trim();
+    const a = String(q.answer || '').trim();
+    if (/^[一-鿿々]+$/.test(k) && /^[ぁ-ゖ]{1,4}$/.test(a) && String(q.sentence || '').includes(k + a)) return Object.assign({}, q, { kanji: k + a });
+    return q;
+  }
+
   function describe(q) {
+    q = withOkuriWord(q);
     const answer = q.answer || KI.defaultAnswer(q);
     const answerChars = chars(answer);
     const loc = locate(q);
@@ -1106,7 +1118,7 @@
         const firstCol = (tierH - pad - 1.5 * f) / f; // 1列目は番号ぶん短い
         const nextCol = (tierH - pad) / f;
         const textCols = d.textLen <= firstCol ? 1 : 1 + Math.ceil((d.textLen - firstCol) / nextCol);
-        const ruby = d.segs.some((seg) => seg.hint) && state.readingHint ? 0.6 * f : 0;
+        const ruby = d.segs.some((seg) => seg.hint) && state.readingHint ? 0.84 * f : 0; // 読みがな（0.6字）と、□との余白（0.24字）
         const ansW = d.ans ? (d.ans.kind === 'free' ? (colW >= 8 * f ? 3.4 : 2.2) : 1.75) * f : 0;
         const sideW = d.segs.some((seg) => seg.side) ? 1.5 * f : 0; // 語の横に付く欄の幅
         const ansH = d.ans ? pad + 1.75 * f + d.ans.count * 1.3 * f : 0;
@@ -1403,12 +1415,40 @@
     if (window.innerWidth < DESKTOP_MIN) el.viewport.scrollLeft = el.viewport.scrollWidth;
   }
 
+  /** 印刷の画面を開く。開かなかったとき（LINE・Discord などアプリ内のブラウザ）は、理由と対処を知らせる */
+  function printNow() {
+    renderPrintArea();
+    let started = false;
+    const mark = () => { started = true; };
+    window.addEventListener('beforeprint', mark, { once: true });
+    window.addEventListener('afterprint', mark, { once: true });
+    window.print();
+    setTimeout(() => {
+      window.removeEventListener('beforeprint', mark);
+      window.removeEventListener('afterprint', mark);
+      if (started) return;
+      toast('印刷の画面が出ないときは、LINE・Discord などアプリの中のブラウザでは印刷できないことがあります。Safari や Chrome で開き直してください（下のボタンでこのページのURLをコピーできます）。', 'warn', {
+        label: 'URLをコピー',
+        run: () => {
+          try { navigator.clipboard.writeText(location.href).then(() => toast('URLをコピーしました'), () => toast(location.href)); } catch (error) { toast(location.href); }
+        }
+      });
+    }, 1500);
+  }
+
   function doPrint() {
     if (!state.questions.length) { toast('印刷する問題がありません。先に問題を作ってください。', 'warn'); return; }
     const conflicts = conflictsText();
-    if (conflicts && !window.confirm('⚠ ' + conflicts + '\n\nこのまま印刷しますか？')) return;
-    renderPrintArea();
-    window.print();
+    if (conflicts) {
+      const message = '⚠ ' + conflicts;
+      const asked = performance.now();
+      if (!window.confirm(message + '\n\nこのまま印刷しますか？')) {
+        // 確認の画面が出ずに、すぐ「いいえ」が返ってきたとき（アプリ内のブラウザ）は、画面の通知から続けられるようにする
+        if (performance.now() - asked < 40) toast(message, 'warn', { label: 'このまま印刷', run: printNow });
+        return;
+      }
+    }
+    printNow();
   }
 
   // ---- 表示切り替え・アコーディオン ------------------------------------------
@@ -1632,6 +1672,34 @@
   }
 
   // ---- 自分で作る（フォーム） ---------------------------------------------------------
+
+  /** 問題の種類ごとに、「漢字」「よみがな」欄に何を入れればよいかを示す（例・注意書き） */
+  const CUSTOM_HINTS = {
+    kaki: { kanji: '橋', reading: 'はし', kanjiLabel: '漢字（書けるようにしたい語）', readingLabel: 'よみがな',
+      hint: '「漢字」に答えの語、「よみがな」にその読みを入れてください。例文には、読みのほう（ひらがな）を書きます（自動でも変換されます）。' },
+    yomi: { kanji: '橋', reading: 'はし', kanjiLabel: '漢字（読み方を答えさせたい語）', readingLabel: 'よみがな（答え）',
+      hint: '「漢字」に読ませたい語、「よみがな」にその読み（答え）を入れてください。例文には、漢字のほうを書きます。' },
+    sentence: { kanji: '芽', reading: '', kanjiLabel: '漢字（□に入る語）', readingLabel: 'よみがな（あれば）',
+      hint: '「漢字」に□に入る語を入れてください。例文に□がなくても、その語がそのまま入っていれば、自動で□になります。' },
+    okuri: { kanji: '借りる', reading: 'かりる', kanjiLabel: '漢字（送りがなを含む語、そのまま）', readingLabel: 'よみがな（語全体）',
+      hint: '「借りる」のように、漢字のあとにひらがなが続く語を、そのまま「漢字」に入れてください（「借」と「りる」に分けて別の欄に入れる必要はありません）。送りがなの部分だけが、自動で答えの四角になります。' },
+    mas: { kanji: '鏡', reading: 'かがみ', kanjiLabel: '漢字（練習させたい語）', readingLabel: 'よみがな（あれば）',
+      hint: '「漢字」に、くり返し書かせたい語を入れてください。' },
+    trace: { kanji: '雪', reading: 'ゆき', kanjiLabel: '漢字（なぞらせたい語）', readingLabel: 'よみがな（あれば）',
+      hint: '「漢字」に、うすい字でなぞらせたい語を入れてください。' },
+    free: { kanji: '', reading: '', kanjiLabel: '漢字（あれば）', readingLabel: 'よみがな（あれば）',
+      hint: '「例文」に問題文をそのまま入れてください（そのまま出題され、□や線は付きません）。' }
+  };
+
+  function applyCustomHint() {
+    if (!el.customType || !el.customHint) return;
+    const cfg = CUSTOM_HINTS[el.customType.value] || CUSTOM_HINTS.kaki;
+    el.customKanji.placeholder = cfg.kanji;
+    el.customReading.placeholder = cfg.reading;
+    if (el.customKanjiLabel) el.customKanjiLabel.textContent = cfg.kanjiLabel;
+    if (el.customReadingLabel) el.customReadingLabel.textContent = cfg.readingLabel;
+    el.customHint.textContent = cfg.hint;
+  }
 
   function resetCustomForm(keepFocus) {
     el.customKanji.value = '';
@@ -2040,6 +2108,18 @@
     });
     $('generateBtn').addEventListener('click', drawQuestions);
 
+    // スマホで文字を入力している間（キーボードが出ている間）は、下の「編集／プレビュー／解答」の帯を隠す
+    // （キーボードが出ると、固定表示の帯が画面の中ほどに浮いて、入力欄をふさぐため）
+    const TEXT_FIELD = 'textarea, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=button]):not([type=submit])';
+    document.addEventListener('focusin', (event) => {
+      if (event.target.matches && event.target.matches(TEXT_FIELD)) document.documentElement.classList.add('kb-open');
+    });
+    document.addEventListener('focusout', (event) => {
+      const next = event.relatedTarget;
+      if (next && next.matches && next.matches(TEXT_FIELD)) return; // 別の入力欄へ移るだけなら、そのまま隠しておく
+      document.documentElement.classList.remove('kb-open');
+    });
+
     // 自作
     $('addQuestionBtn').addEventListener('click', addCustomQuestion);
     $('resetFormBtn').addEventListener('click', () => resetCustomForm(true));
@@ -2149,7 +2229,8 @@
       'sheetInfo', 'importFile', 'historyCount', 'listNotice', 'setName', 'setList',
       'ocrProvider', 'ocrVertical', 'ocrText', 'ocrStatus', 'ocrThumb', 'ocrFile', 'ocrCamera', 'ocrCameraBtn', 'ocrPickBtn', 'ocrType',
       'aiInput', 'aiTheme', 'aiType', 'aiPromptText', 'bulkText', 'bulkType',
-      'customType', 'customStyle', 'customKanji', 'customReading', 'customSentence', 'customAnswer'
+      'customType', 'customStyle', 'customKanji', 'customReading', 'customSentence', 'customAnswer',
+      'customKanjiLabel', 'customReadingLabel', 'customHint'
     ].forEach((id) => { el[id] = $(id); });
     el.viewport = el.sheetViewport;
   }
@@ -2157,6 +2238,8 @@
   function initialize() {
     cacheElements();
     fillSelect(el.customType, TYPES, TYPE_LABELS);
+    el.customType.addEventListener('change', applyCustomHint);
+    applyCustomHint();
     $('bulkTypeSelect').innerHTML = '<option value="">種類を選ぶ…</option>' +
       TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">すべて「' + esc(TYPE_LABELS[t]) + '」にする</option>').join('');
     fillSelect(el.customStyle, STYLES, STYLE_LABELS);

@@ -166,7 +166,9 @@
 .box::after { top: 50%; left: 0; right: 0; height: 0.2mm; margin-top: -0.1mm; }
 .is-answer .box::before, .is-answer .box::after { display: none; }
 .hint-ruby { ruby-align: center; }
-.hint-ruby rt { font-size: 0.6em; color: #333; }
+/* □の右に付く読みがなが、□の枠に重ならないように。Safari は□を Chrome より右（0.3字ぶん）に置いて重なるので、□を文字と同じ基準線にそろえ、読みがなの左に余白をとる */
+.hint-ruby .box { vertical-align: baseline; }
+.hint-ruby rt { font-size: 0.6em; color: #333; padding-left: 0.4em; }
 
 /* 解答欄 */
 .q-ans {

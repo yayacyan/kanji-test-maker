@@ -227,6 +227,7 @@ label { display: block; }
   border-radius: 999px;
   box-shadow: var(--shadow);
 }
+.kb-open .view-tabs { display: none; }
 .view-btn { background: transparent; color: var(--muted); min-height: 48px; padding: 6px 8px; }
 .view-btn.is-active { background: var(--black); color: #fff; }
 .tab-count { font-weight: 500; font-size: 0.86em; opacity: 0.8; }
