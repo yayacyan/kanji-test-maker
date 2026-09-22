@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>更新履歴 ／ Changelog ／ 更新日誌 — 漢字テストメーカー</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body.changelog-body { display: block; height: auto; }
+      .cl-wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+      .cl-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 0.88rem; font-weight: 600; }
+      .cl-back:hover { color: var(--ink); }
+      .cl-head { margin: 18px 0 6px; display: flex; align-items: center; gap: 12px; }
+      .cl-head .brand-mark { position: static; }
+      .cl-title { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.02em; }
+      .cl-sub { margin: 0 0 22px; color: var(--muted); font-size: 0.92rem; }
+      .cl-langs { display: flex; gap: 8px; margin-bottom: 26px; }
+      .cl-lang-btn {
+        min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line);
+        background: var(--surface); color: var(--muted); font-weight: 700; font-size: 0.92rem; cursor: pointer;
+      }
+      .cl-lang-btn.is-active { background: var(--black); color: #fff; border-color: var(--black); }
+      .cl-entry { padding: 18px 0; border-top: 1px solid var(--line); }
+      .cl-entry:first-of-type { border-top: none; }
+      .cl-date { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft); display: inline-block; padding: 2px 10px; border-radius: 999px; margin-bottom: 8px; }
+      .cl-entry h2 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 800; }
+      .cl-entry ul { margin: 0; padding-left: 1.2em; color: var(--ink); line-height: 1.75; }
+      .cl-entry ul li + li { margin-top: 4px; }
+      .cl-lang-block { display: none; }
+      .cl-lang-block.is-active { display: block; }
+      .cl-foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.84rem; color: var(--faint); }
+    </style>
+  </head>
+  <body class="changelog-body">
+    <div class="cl-wrap">
+      <a class="cl-back" href="index.html">← <span data-t="back">サイトに戻る</span></a>
+      <div class="cl-head">
+        <div class="brand-mark" aria-hidden="true"><span>漢</span></div>
+        <div>
+          <div class="cl-title">漢字テストメーカー</div>
+          <div class="cl-sub" data-t="subtitle">更新履歴</div>
+        </div>
+      </div>
+
+      <div class="cl-langs" role="group" aria-label="言語 / Language / 語言">
+        <button type="button" class="cl-lang-btn" data-lang="ja">日本語</button>
+        <button type="button" class="cl-lang-btn" data-lang="en">English</button>
+        <button type="button" class="cl-lang-btn" data-lang="zh">中文</button>
+      </div>
+
+      <!-- 日本語 -->
+      <div class="cl-lang-block" data-lang-block="ja">
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-22</span>
+          <h2>iPhoneでの使いやすさを改善</h2>
+          <ul>
+            <li>文字を入力しているあいだ、下の「編集／プレビュー／解答」のボタンが画面の途中に浮いてしまう不具合を直しました。</li>
+            <li>読みがなが□の枠に重なって見えることがあった不具合を直しました（Safari）。</li>
+            <li>LINEやDiscordなどアプリの中のブラウザで、印刷ボタンを押しても反応しないことがあります。反応しないときは、理由と対処方法（Safari／Chromeで開き直す）を案内するようにしました。</li>
+            <li>送りがなの問題で、漢字と送りがなを別々の欄に入力しても、正しく認識するようにしました。</li>
+            <li>「自分で問題を作る」で、問題の種類ごとに「何を入力すればよいか」がその場で分かるようにしました。</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-21</span>
+          <h2>見出しと学年・問題数の追加</h2>
+          <ul>
+            <li>問題の種類が変わるところに「ここから ○○」という小さな見出しを付けました。</li>
+            <li>学年に「小学1〜2年」、問題数に「15問」を選べるようにしました。</li>
+            <li>案内文をやさしい言葉に直しました。</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-20</span>
+          <h2>問題の種類を絵で選べるように</h2>
+          <ul>
+            <li>問題の種類を、できあがりの絵を見ながら選べるようにしました。</li>
+            <li>送りがな・練習マスの見た目を整え、答えが分かってしまう出題を減らしました。</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-19</span>
+          <h2>公開しました</h2>
+          <ul>
+            <li>漢字テストメーカーを公開しました。</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- English -->
+      <div class="cl-lang-block" data-lang-block="en">
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-22</span>
+          <h2>Smoother experience on iPhone</h2>
+          <ul>
+            <li>Fixed an issue where the "Edit / Preview / Answers" bar at the bottom would float awkwardly over the middle of the screen while typing.</li>
+            <li>Fixed reading-hint text (furigana) overlapping the answer box in Safari.</li>
+            <li>The print button sometimes did nothing inside in-app browsers (such as LINE or Discord). It now shows a message explaining why, with a suggestion to reopen the page in Safari or Chrome.</li>
+            <li>For okurigana (verb-ending) questions, entering the kanji and the okurigana in separate fields is now recognized correctly.</li>
+            <li>The "Create your own" form now shows a short explanation for each question type, so it's clearer what to type into each field.</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-21</span>
+          <h2>Section labels, more grade and count options</h2>
+          <ul>
+            <li>Added a small "Starting here: ..." label where the question type changes.</li>
+            <li>Added "Grades 1–2" as a grade option, and "15 questions" as a count option.</li>
+            <li>Simplified some of the on-screen guidance text.</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-20</span>
+          <h2>Pick question types visually</h2>
+          <ul>
+            <li>Question types can now be chosen from picture cards showing what the finished sheet looks like.</li>
+            <li>Improved the look of okurigana and practice-grid questions, and reduced cases where an answer was visible elsewhere on the page.</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-19</span>
+          <h2>Launched</h2>
+          <ul>
+            <li>Kanji Test Maker (漢字テストメーカー) went live.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 繁體中文 -->
+      <div class="cl-lang-block" data-lang-block="zh">
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-22</span>
+          <h2>改善 iPhone 使用體驗</h2>
+          <ul>
+            <li>修正輸入文字時，畫面下方「編輯／預覽／解答」的按鈕列會浮在畫面中間的問題。</li>
+            <li>修正 Safari 上讀音壓到答案方格的問題。</li>
+            <li>在 LINE、Discord 等 App 內建瀏覽器中，印刷按鈕有時按了沒反應。現在會提示原因，並建議改用 Safari 或 Chrome 開啟。</li>
+            <li>送假名（送りがな）題型，即使把漢字和假名分別填在不同欄位，現在也能正確辨識為完整的詞。</li>
+            <li>「自己輸入題目」的表單，新增依題型顯示的輸入說明，更清楚該在每個欄位填什麼。</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-21</span>
+          <h2>新增分段標題、年級與題數選項</h2>
+          <ul>
+            <li>題型切換的地方，加上「從這裡開始是○○」的小標題。</li>
+            <li>年級新增「小學 1〜2 年級」，題數新增「15 題」。</li>
+            <li>畫面上的說明文字改得更淺顯易懂。</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-20</span>
+          <h2>可用圖卡選擇題型</h2>
+          <ul>
+            <li>選擇題型時，可以直接看成品示意圖來選。</li>
+            <li>改善送假名、練習方格的呈現，並減少答案不小心透露在紙面其他地方的情況。</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-date">2026-09-19</span>
+          <h2>正式公開</h2>
+          <ul>
+            <li>「漢字テストメーカー」（漢字測驗產生器）正式上線。</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="cl-foot" data-t="footnote">このページは、公開版に加えた変更の記録です。英語・中国語（繁体字）は翻訳です。</p>
+    </div>
+
+    <script>
+      (function () {
+        var FOOT = {
+          ja: 'このページは、公開版に加えた変更の記録です。英語・中国語（繁体字）は翻訳です。',
+          en: 'This page lists changes made to the public site. The Japanese text is the original; English and Chinese are translations.',
+          zh: '本頁記錄公開版本的更新內容。日文為原文，英文與繁體中文為翻譯。'
+        };
+        var BACK = { ja: 'サイトに戻る', en: 'Back to the site', zh: '回到網站' };
+        var SUB = { ja: '更新履歴', en: 'Changelog', zh: '更新日誌' };
+        function setLang(lang) {
+          document.querySelectorAll('.cl-lang-block').forEach(function (el) {
+            el.classList.toggle('is-active', el.dataset.langBlock === lang);
+          });
+          document.querySelectorAll('.cl-lang-btn').forEach(function (b) {
+            b.classList.toggle('is-active', b.dataset.lang === lang);
+          });
+          document.querySelector('[data-t="footnote"]').textContent = FOOT[lang];
+          document.querySelector('[data-t="back"]').textContent = BACK[lang];
+          document.querySelector('[data-t="subtitle"]').textContent = SUB[lang];
+          document.documentElement.lang = lang;
+          try { localStorage.setItem('kanji-test-maker-changelog-lang', lang); } catch (error) { /* 保存できなくても表示は切り替わる */ }
+        }
+        document.querySelectorAll('.cl-lang-btn').forEach(function (b) {
+          b.addEventListener('click', function () { setLang(b.dataset.lang); });
+        });
+        var saved = 'ja';
+        try { saved = localStorage.getItem('kanji-test-maker-changelog-lang') || 'ja'; } catch (error) { /* 既定の日本語のまま */ }
+        setLang(['ja', 'en', 'zh'].includes(saved) ? saved : 'ja');
+      })();
+    </script>
+  </body>
+</html>
