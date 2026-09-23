@@ -1108,6 +1108,13 @@
   // 下限まで小さくし、段の並びも変えてみて、それでも部品が枠からはみ出すときだけ、ここまで下げる。
   // （はみ出したまま印刷すると、文の字が隣の問題に食い込んだり切れたりするので、そのほうが害が大きい）
   const HARD_MIN_FONT = 2.2;
+  // 解答マスだけを大きくするときの上限。
+  //  ・CELL_MAX_RATIO：問題文に対する比。これを超えると、マスばかり大きくて文が読みにくい紙面になる
+  //  ・CELL_MAX_FONT：これ以上大きくしても書きやすさは変わらない（マスの一辺 12.0mm ＝ 9.6 × 1.25）
+  const CELL_MAX_RATIO = 1.5;
+  const CELL_MAX_FONT = 9.6;
+  // 解答マスの大きさを、はさみうちで探すときの回数（1%ちがいまで詰める）
+  const CELL_TRIES = 5;
 
   function autoTiers(format, n) {
     if (format === 'A3-landscape') return n <= 10 ? 1 : n <= 20 ? 2 : 4;
@@ -1208,10 +1215,13 @@
     });
   }
 
-  const fontCache = { key: '', f: 0, tiers: 0 };
+  const fontCache = { key: '', f: 0, tiers: 0, cell: 0 };
 
   /** fittedFont が実測で選び直した段数（0 ＝ 推定どおり）。用紙を組み立てるときだけ使う */
   let fittedTiers = 0;
+
+  /** fittedFont が実測で決めた「解答マスの字級」(mm)。問題文の字級（fittedFont の戻り値）以上 */
+  let fittedCell = 0;
 
   /**
    * 文字サイズの決定：寸法から推定した値を上限に、実際に(画面外で)描画して
@@ -1223,6 +1233,9 @@
    *   2. それでもはみ出すなら、段の数を変えて実際に描き直し、収まる並びを探す
    *      （段を増やすと1問ぶんの列が広くなるので、折り返した2列目が入るようになる）
    *   3. どの並びでも収まらないときだけ、下限を下回ってでも小さくする
+   *
+   * ここまでで決まるのは「問題文の字級」。そのあと、文の字級・段の並びはそのままで、
+   * 解答マスの字級だけを実測しながら大きくする（4段階目）。余白がなければ何も変わらない。
    */
   /** 文字サイズの計算結果を使い回してよいかを見分ける鍵（用紙の種類も含む） */
   function fontKey() {
@@ -1232,18 +1245,24 @@
 
   function fittedFont() {
     const key = fontKey();
-    if (fontCache.key === key) { fittedTiers = fontCache.tiers; return fontCache.f; }
+    if (fontCache.key === key) { fittedTiers = fontCache.tiers; fittedCell = fontCache.cell; return fontCache.f; }
     const items = state.showInstructions ? instructionItems(state.questions) : [];
     const insH = instructionHeight(items, FORMATS[state.format].w - 20);
     let f = computeLayout(state.questions.map(describe), insH).f;
     let tiers = 0;
+    let cell = 0;
+    // 画面と印刷の微差に備えて、わずかに余裕を持たせる。
+    // 読みやすさの下限までしか小さくしていないときは、その下限より下には行かない（従来どおり）。
+    const margin = (v) => Math.max(v < MIN_FONT - 1e-9 ? HARD_MIN_FONT : MIN_FONT, v * 0.985);
     if (state.questions.length) {
       const probe = document.createElement('div');
       probe.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none';
       document.body.appendChild(probe);
       // いまの文字サイズ・段の並びで、枠からはみ出す部品があるか（問題用紙・解答用紙の両方を見る）
-      const bad = () => ['question', 'answer'].some((m) => { probe.innerHTML = buildSheet(m, f, tiers); return overflowing(probe); });
+      // c ＝ 解答マスの字級（省略すると文字と同じ＝従来どおり）
+      const bad = (c) => ['question', 'answer'].some((m) => { probe.innerHTML = buildSheet(m, f, tiers, c); return overflowing(probe); });
       try {
+        let fits = true;
         while (f > MIN_FONT && bad()) f = Math.max(MIN_FONT, f * 0.96);
         if (bad()) {
           const n = state.questions.length;
@@ -1254,30 +1273,60 @@
           const hit = options.find((o) => { tiers = o.tiers; return !bad(); });
           tiers = hit ? hit.tiers : 0;
           while (f > HARD_MIN_FONT && bad()) f = Math.max(HARD_MIN_FONT, f * 0.96);
+          fits = !bad();
+        }
+        // 余裕ぶんは「マスを大きくする」前に入れる。文字とマスの比が変わると□のはみ出し方も
+        // 変わるので、あとから文字だけ縮めると、測った紙面と実際の紙面が食い違うため。
+        f = margin(f);
+        // ここからは f・段の並びを動かさず、解答マスだけを実測しながら大きくする。
+        // （マスが広がると文の折り返しが増えることがあるので、必ず描いて測る。はみ出したら前の値に戻す）
+        cell = f;
+        const cap = Math.min(f * CELL_MAX_RATIO, CELL_MAX_FONT);
+        // 実際に使う値より 1.5% 大きい値で試し、ここでも画面と印刷の微差ぶんの余裕を残す。
+        // まず上限を試し（余白のある紙面はこれ1回で決まる）、だめならはさみうちで探す
+        if (fits && cap > cell + 1e-9 && !bad(cap * 1.015)) {
+          cell = cap;
+        } else if (fits) {
+          let lo = cell;
+          let hi = cap;
+          for (let i = 0; i < CELL_TRIES && hi > lo * 1.01; i += 1) {
+            const mid = Math.sqrt(lo * hi);
+            if (bad(mid * 1.015)) hi = mid; else lo = mid;
+          }
+          cell = lo;
         }
       } finally {
         probe.remove();
       }
     }
-    // 画面と印刷の微差に備え、わずかに余裕を持たせる。
-    // 読みやすさの下限までしか小さくしていないときは、その下限より下には行かない（従来どおり）。
-    f = Math.max(f < MIN_FONT - 1e-9 ? HARD_MIN_FONT : MIN_FONT, f * 0.985);
+    if (!cell) { f = margin(f); cell = f; } // 問題がないとき（実測していない）
     fontCache.key = key;
     fontCache.f = f;
     fontCache.tiers = tiers;
+    fontCache.cell = cell;
     fittedTiers = tiers;
+    fittedCell = cell;
     return f;
   }
 
-  function buildSheet(mode, fontMm, forceTiers) {
+  /** 実測で決まった解答マスの一辺(mm)。案内の文や注意はこの値を使う（問題文の字級ではない） */
+  function fittedCellMm() {
+    const f = fittedFont();
+    return (fittedCell || f) * 1.25;
+  }
+
+  function buildSheet(mode, fontMm, forceTiers, cellMm) {
     const answerMode = mode === 'answer';
     const descs = state.questions.map(describe);
     const items = state.showInstructions ? instructionItems(state.questions) : [];
     const lay = computeLayout(descs, instructionHeight(items, FORMATS[state.format].w - 20), forceTiers);
     if (fontMm) {
       lay.f = fontMm;
-      lay.maxCells = Math.floor((lay.tierH - 2.2 * fontMm) / (1.3 * fontMm));
+      // 1列に入るマスの数は、マスの大きさ（cellF）で決まる。上の余白ぶんは問題文の大きさで数える
+      lay.maxCells = Math.floor((lay.tierH - 2.2 * fontMm) / (1.3 * (cellMm || fontMm)));
     }
+    // 解答マスの字級（省略時は問題文と同じ＝従来どおり）。問題文より小さくはしない
+    lay.cellF = Math.max(cellMm || 0, lay.f);
     // 問題のHTMLを作る前にそろえる（文字サイズの実測も、そろえたあとの中身で行われる）
     alignPracticeCells(descs, lay);
     const n = state.questions.length;
@@ -1304,7 +1353,7 @@
     const sub = str(state.subtitle).trim();
 
     return '<div class="paper ' + (answerMode ? 'is-answer' : 'is-question') + '" style="' +
-      '--W:' + lay.fmt.w + 'mm;--H:' + lay.fmt.h + 'mm;--f:' + lay.f.toFixed(2) + 'mm;--cols:' + lay.cols + ';--head:' + headHeight() + 'mm;' +
+      '--W:' + lay.fmt.w + 'mm;--H:' + lay.fmt.h + 'mm;--f:' + lay.cellF.toFixed(2) + 'mm;--tf:' + lay.f.toFixed(2) + 'mm;--cols:' + lay.cols + ';--head:' + headHeight() + 'mm;' +
       'font-family:' + FONT_STACKS[state.font] + '">' +
       '<div class="paper-head">' +
         '<div class="paper-title">' + esc(state.title || '漢字テスト') + (answerMode ? '<span class="stamp">解答</span>' : '') + '</div>' +
@@ -1323,13 +1372,28 @@
     return instructionHeight(items, FORMATS[state.format].w - 20);
   }
 
-  /** 解答マスが8mm以上になる、いまの用紙での問題数（おおよそ） */
+  /**
+   * 解答マスが「書きやすい大きさ」(GOOD_CELL) になる、いまの用紙での問題数（おおよそ）。
+   * まず推定で当たりを付け、そのあと実際に描いて測って前後に寄せる。
+   * （解答マスは問題文より大きくなることがあり、推定のままでは少なめの数になるため）
+   */
   function recommendCount(descs) {
-    for (let m = descs.length - 1; m >= 1; m -= 1) {
-      const lay = computeLayout(descs.slice(0, m), insHeightFor(state.questions.slice(0, m)));
-      if (lay.f * 1.25 >= 8.9) return m; // 実測は推定より1割ほど小さくなるので、余裕を見て数える
+    const n = descs.length;
+    if (n < 2) return 0;
+    // 問題を減らすほどマスは大きくなるので、「書きやすい大きさになる いちばん多い問題数」を
+    // はさみうちで探す。「約◯問」の案内なので5問きざみで数え、そのぶん測る回数を減らす
+    // （50問でも4回ほど。同じ状態の結果は覚えておくので、測り直しはない）
+    const steps = [];
+    for (let m = 5; m <= n - 1; m += 5) steps.push(m);
+    if (!steps.length) return 0;
+    let lo = 0;
+    let hi = steps.length - 1;
+    let best = 0;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (cellMmForCount(steps[mid]) >= GOOD_CELL) { best = steps[mid]; lo = mid + 1; } else hi = mid - 1;
     }
-    return 0;
+    return best;
   }
 
   /** 用紙に出る文字（答えが見えてしまうかどうかの判定に使う） */
@@ -1382,16 +1446,16 @@
    * 測れなかったときは 0 を返し、案内からその用紙を外す。
    */
   function cellMmForFormat(format) {
-    if (format === state.format) return fittedFont() * 1.25;
+    if (format === state.format) return fittedCellMm();
     const backFormat = state.format;
-    const back = { key: fontCache.key, f: fontCache.f, tiers: fontCache.tiers, fitted: fittedTiers };
+    const back = { key: fontCache.key, f: fontCache.f, tiers: fontCache.tiers, cell: fontCache.cell, fitted: fittedTiers, fcell: fittedCell };
     let mm = 0;
     try {
       state.format = format;
       const key = fontKey();
       if (otherCellCache.has(key)) return otherCellCache.get(key);
       fontCache.key = ''; // いまの用紙の結果を消さずに、別の用紙として測り直す
-      mm = fittedFont() * 1.25;
+      mm = fittedCellMm();
       if (otherCellCache.size > 24) otherCellCache.clear();
       otherCellCache.set(key, mm);
       return mm;
@@ -1402,7 +1466,39 @@
       fontCache.key = back.key;
       fontCache.f = back.f;
       fontCache.tiers = back.tiers;
+      fontCache.cell = back.cell;
       fittedTiers = back.fitted;
+      fittedCell = back.fcell;
+    }
+  }
+
+  /**
+   * 問題を m 問に減らしたときの、実測した解答マスの一辺(mm)。
+   * 用紙を替えて測る cellMmForFormat と同じやり方で、問題の数だけを一時的に変えて測る。
+   */
+  const countCellCache = new Map();
+  function cellMmForCount(m) {
+    const backQuestions = state.questions;
+    const back = { key: fontCache.key, f: fontCache.f, tiers: fontCache.tiers, cell: fontCache.cell, fitted: fittedTiers, fcell: fittedCell };
+    try {
+      state.questions = backQuestions.slice(0, m);
+      const key = fontKey();
+      if (countCellCache.has(key)) return countCellCache.get(key);
+      fontCache.key = '';
+      const mm = fittedCellMm();
+      if (countCellCache.size > 60) countCellCache.clear();
+      countCellCache.set(key, mm);
+      return mm;
+    } catch (error) {
+      return 0; // 測れなかったときは案内を出さないだけ
+    } finally {
+      state.questions = backQuestions;
+      fontCache.key = back.key;
+      fontCache.f = back.f;
+      fontCache.tiers = back.tiers;
+      fontCache.cell = back.cell;
+      fittedTiers = back.fitted;
+      fittedCell = back.fcell;
     }
   }
 
@@ -1412,10 +1508,10 @@
    * 用紙の案内は、決まった順番をすすめるのではなく、ほかの用紙を実際に測ってから
    * 「本当に大きくなる用紙」だけを、mmの数字を添えてすすめる。
    */
-  function smallCellText(f) {
+  function smallCellText() {
     if (!state.questions.length) return '';
     const writes = state.questions.some((q) => ['kaki', 'yomi', 'mas', 'trace'].includes(q.type));
-    const now = f * 1.25;
+    const now = fittedCellMm(); // 問題文の字級ではなく、実測した解答マスの大きさで判断する
     if (!writes || now >= GOOD_CELL) return '';
     const descs = state.questions.map(describe);
     const rec = recommendCount(descs);
@@ -1455,11 +1551,11 @@
     if (!state.questions.length) return { text: '', warn: false };
     const descs = state.questions.map(describe);
     const lay = computeLayout(descs, insHeightFor(state.questions), fittedTiers);
-    const cell = f * 1.25;
+    const cell = fittedCellMm(); // 解答マスは問題文より大きいことがあるので、実測した値を出す
     const pt = f / 0.3528;
     let text = '解答マス 約' + cell.toFixed(1) + 'mm／文字 約' + Math.round(pt) + 'pt';
     let warn = false;
-    const small = smallCellText(f);
+    const small = smallCellText();
     if (small) {
       text += '　' + small;
       warn = true;
@@ -1517,7 +1613,7 @@
   function renderPrintArea() {
     const modes = state.printBoth ? ['question', 'answer'] : [state.sheetMode];
     const f = fittedFont();
-    el.printArea.innerHTML = modes.map((m) => '<div class="print-sheet">' + buildSheet(m, f, fittedTiers) + '</div>').join('');
+    el.printArea.innerHTML = modes.map((m) => '<div class="print-sheet">' + buildSheet(m, f, fittedTiers, fittedCell) + '</div>').join('');
     updatePageStyle();
   }
 
@@ -1546,7 +1642,7 @@
 
   function renderPaper() {
     const f = fittedFont();
-    el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' + buildSheet(state.sheetMode, f, fittedTiers) + '</div></div>';
+    el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' + buildSheet(state.sheetMode, f, fittedTiers, fittedCell) + '</div></div>';
     applyZoom();
     renderPrintArea();
     updateSheetInfo(f);
@@ -1588,9 +1684,8 @@
       const leaks = findConflicts().leaks.length;
       list.push({ title: leaks ? '答えが見えてしまう問題があります' : '同じ問題が2つ入っています', text: conflicts });
     }
-    const f = fittedFont();
-    const small = smallCellText(f);
-    if (small) list.push({ title: 'マスが小さめです（解答マス 約' + (f * 1.25).toFixed(1) + 'mm）', text: small });
+    const small = smallCellText();
+    if (small) list.push({ title: 'マスが小さめです（解答マス 約' + fittedCellMm().toFixed(1) + 'mm）', text: small });
     return list;
   }
 

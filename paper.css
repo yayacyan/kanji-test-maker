@@ -12,7 +12,7 @@
   overflow: hidden;
   background: #fff;
   color: #111;
-  font-size: var(--f);
+  font-size: var(--f); /* --f ＝ 解答マスの大きさの基準。--tf ＝ 問題文の大きさ（--f 以下）。指定がなければ両方同じ */
   line-height: 1.3;
 }
 
@@ -79,8 +79,9 @@
   flex-direction: row-reverse; /* 右＝問題文、左＝解答欄 */
   justify-content: flex-start;
   align-items: stretch;
-  gap: 0.35em;
-  padding: 0 0.3em;
+  /* 問題文と解答欄のすき間・列の余白は、マスではなく文字に合わせる（マスを大きくしても、すき間は広げない） */
+  gap: calc(0.35 * var(--tf, var(--f)));
+  padding: 0 calc(0.3 * var(--tf, var(--f)));
   border-left: 0.3mm solid #999; /* 文が折り返して2列目に入っても、隣の問題との境目が分かるよう、線を少し濃く太く */
   overflow: hidden;
 }
@@ -88,6 +89,7 @@
 
 .q-main {
   flex: none;
+  font-size: var(--tf, var(--f)); /* 問題文の大きさ。中にある解答マス（□・方格）は、これに引きずられず --f で決める */
   writing-mode: vertical-rl;
   text-orientation: mixed;
   line-height: 1.55;
@@ -125,7 +127,7 @@
   flex-direction: column;   /* 縦書きでは「列」方向＝右から左：語が右、欄が左 */
   align-items: flex-start;
   gap: 0.18em;
-  min-height: calc(var(--n) * 1.25em); /* 欄の高さぶんは文の長さに数える（列の下端で欄がはみ出さないように） */
+  min-height: calc(var(--n) * 1.25 * var(--f)); /* 欄の高さぶんは文の長さに数える（列の下端で欄がはみ出さないように）。欄はマスの大きさ --f で決まる */
   vertical-align: top;
 }
 .side {
@@ -150,6 +152,7 @@
 .box {
   position: relative;
   display: inline-block;
+  font-size: var(--f); /* 問題文の中にあっても、マスの大きさは文字ではなく --f で決める */
   width: 1.25em; height: 1.25em;
   margin: 0.08em 0;
   border: 0.3mm solid #111;
@@ -169,7 +172,7 @@
 /* □の右に付く読みがなが、□の枠に重ならないように。Safari は□を Chrome より右（0.3字ぶん）に置いて重なるので、□を文字と同じ基準線にそろえ、読みがなの左に余白をとる */
 .hint-ruby .box { vertical-align: baseline; }
 .hint-ruby rt { font-size: 0.6em; color: #333; }
-.hint-ruby-box rt { padding-left: 0.4em; } /* □が読みがなの土台のときだけ、読みがなを□の枠からずらす（送りがなの「借」のような、字だけが土台のときは詰める） */
+.hint-ruby-box rt { padding-left: calc(0.4 * var(--f)); } /* □が読みがなの土台のときだけ、読みがなを□の枠からずらす（送りがなの「借」のような、字だけが土台のときは詰める） */
 
 /* 解答欄 */
 .q-ans {
@@ -177,12 +180,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 1.75em;
+  padding-top: calc(1.75 * var(--tf, var(--f))); /* 問題番号の高さに合わせる位置決めなので、マスではなく文字に合わせる */
   writing-mode: horizontal-tb;
 }
 .cell {
   position: relative;
   display: block;
+  font-size: var(--f); /* 問題文の中（線を引いた語の横）に置かれても、マスの大きさは --f で決める */
   width: 1.25em; height: 1.25em;
   margin-top: -0.3mm;
   border: 0.3mm solid #111;
@@ -204,6 +208,7 @@
 .kakko, .lineans {
   display: block;
   position: relative;
+  font-size: var(--f); /* 解答欄なので、問題文の中に置かれてもマスの大きさ --f で決める */
   width: 1.25em;
   height: calc((var(--n) + 1) * 1.2em);
   writing-mode: horizontal-tb;
@@ -260,8 +265,8 @@
 
 /* 種類が変わる最初の問題の上に付ける「ここから ○○」の札。札のある段は、全問の番号の高さをそろえる */
 /* 札の文字は問題文の0.6倍。ただし用紙が細かくなっても読めるよう、2.4mm を下限にする（文字が2.8mm以下の極小の用紙では 0.6倍のまま） */
-.tier.has-sec { --sec-f: max(0.6em, min(2.4mm, calc((1em - 2.8mm) * 12))); }
-.tier.has-sec .q { position: relative; padding-top: calc(2.6 * var(--sec-f) + 0.34em); }
+.tier.has-sec { --sec-f: max(calc(0.6 * var(--tf, var(--f))), min(2.4mm, calc((var(--tf, var(--f)) - 2.8mm) * 12))); }
+.tier.has-sec .q { position: relative; padding-top: calc(2.6 * var(--sec-f) + 0.34 * var(--tf, var(--f))); }
 .q-sec {
   position: absolute; top: 0.1em; left: 0; right: 0;
   writing-mode: horizontal-tb; white-space: nowrap;
