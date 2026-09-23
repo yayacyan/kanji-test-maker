@@ -137,7 +137,11 @@
                 <button type="button" class="pill-btn" data-count="50">50問</button>
               </div>
 
-              <p class="hint size-hint">書きやすい大きさにするには、A4縦なら10問くらいまでがおすすめです（問題の種類や文の長さで変わります。作ったあと、大きさの目安が出ます）。</p>
+              <label class="mt-12 block-label">
+                <span class="field-label">用紙の大きさ</span>
+                <select id="gradeFormatSelect" class="select-input"></select>
+              </label>
+              <p class="hint size-hint">書きやすい大きさにするには、A4縦なら10問くらいまでがおすすめです（問題の種類や文の長さで変わります。作ったあと、大きさの目安が出ます）。マスを大きくしたいときは、まず用紙をA4横にして試してみてください。多くの場合は同じ問題数でも大きくなりますが、練習マス・なぞり書きのようにマスを下へ積む種類では、かえって小さくなることもあります。それでも小さいときはA3横も試せます（A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります。コンビニなどの印刷が必要です）。問題を作ったあとは、用紙を変えるとマスが何mmになるかを実際に測って案内します。</p>
 
               <span class="field-label mt-12">問題の種類（複数選べます）</span>
               <div class="pill-group" id="typePills"></div>
@@ -191,7 +195,7 @@
               </div>
               <p class="hint" id="customHint"></p>
 
-              <label class="field-label mt-12" for="customSentence">例文</label>
+              <label class="field-label mt-12" for="customSentence" id="customSentenceLabel">例文</label>
               <textarea id="customSentence" class="text-input" rows="2" placeholder="くもの巣がはる。"></textarea>
 
               <label class="field-label mt-12" for="customAnswer">答え（空欄なら自動で入ります）</label>
@@ -362,6 +366,19 @@
       <footer class="site-footer"><a href="changelog.html">更新履歴 ／ Changelog ／ 更新日誌</a></footer>
 
       <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+      <!-- 印刷前の確認（答えが見えてしまう／マスが小さい）。既定は「戻って直す」 -->
+      <div id="printConfirm" class="modal" hidden>
+        <div class="modal-back" id="printConfirmBack"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="printConfirmTitle" aria-describedby="printConfirmBody">
+          <h2 class="modal-title" id="printConfirmTitle">印刷する前に、確かめてください</h2>
+          <div class="modal-body" id="printConfirmBody"></div>
+          <div class="modal-actions">
+            <button type="button" id="printConfirmCancel" class="primary-btn modal-main">戻って直す</button>
+            <button type="button" id="printConfirmGo" class="modal-sub">このまま印刷する</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 印刷専用（画面では非表示。印刷時だけここが出力される） -->

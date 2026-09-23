@@ -258,6 +258,8 @@ label { display: block; }
   .pane-preview { display: flex; flex-direction: column; overflow: hidden; padding: 2px 0 0; }
   .sheet-viewport { flex: 1; min-height: 0; overflow: auto; }
   #printBtn { display: none; } /* 右のプレビューバーに同じボタンがある */
+  /* 左の設定にも同じ「用紙の大きさ」があり、2つ同時に見えると迷うので、こちらを隠す（狭い画面では左右が同時に見えないため、そのまま出す） */
+  .preview-bar .bar-field { display: none; }
 }
 
 /* ---------- 「つくる」ペイン ---------- */
@@ -550,6 +552,56 @@ details.tool:not([open]) { display: none; }
 }
 .toast.is-warn .toast-action { background: rgba(0, 0, 0, 0.1); }
 @media (min-width: 1000px) { .toast { top: auto; bottom: 24px; } }
+
+/* ---------- 印刷前の確認（画面内のダイアログ） ---------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* 通知（60）や下の切り替え（40）より上 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+}
+.modal-back { position: absolute; inset: 0; background: rgba(20, 17, 15, 0.46); }
+.modal-card {
+  position: relative;
+  width: min(100%, 520px);
+  max-height: min(84vh, 640px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 22px 22px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.3);
+}
+.modal-title { margin: 0 0 14px; font-size: 1.05rem; line-height: 1.5; }
+.modal-warn {
+  display: block;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+.modal-warn b { display: block; margin-bottom: 2px; font-size: 0.92rem; }
+.modal-actions { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin-top: 16px; }
+.modal-main { width: 100%; font-size: 1rem; }
+.modal-sub {
+  min-height: 44px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.modal-sub:hover { color: var(--ink); }
 
 /* ---------- 小さい画面の調整 ---------- */
 

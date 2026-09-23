@@ -81,7 +81,7 @@
   align-items: stretch;
   gap: 0.35em;
   padding: 0 0.3em;
-  border-left: 0.2mm solid #c9c9c9;
+  border-left: 0.3mm solid #999; /* 文が折り返して2列目に入っても、隣の問題との境目が分かるよう、線を少し濃く太く */
   overflow: hidden;
 }
 .tier .q:first-child { border-right: 0; }
@@ -168,7 +168,8 @@
 .hint-ruby { ruby-align: center; }
 /* □の右に付く読みがなが、□の枠に重ならないように。Safari は□を Chrome より右（0.3字ぶん）に置いて重なるので、□を文字と同じ基準線にそろえ、読みがなの左に余白をとる */
 .hint-ruby .box { vertical-align: baseline; }
-.hint-ruby rt { font-size: 0.6em; color: #333; padding-left: 0.4em; }
+.hint-ruby rt { font-size: 0.6em; color: #333; }
+.hint-ruby-box rt { padding-left: 0.4em; } /* □が読みがなの土台のときだけ、読みがなを□の枠からずらす（送りがなの「借」のような、字だけが土台のときは詰める） */
 
 /* 解答欄 */
 .q-ans {

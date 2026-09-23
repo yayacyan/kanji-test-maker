@@ -61,12 +61,13 @@
       showName: true,
       showScore: true,
       font: 'kyokasho',
-      readingHint: true,
+      readingHint: false,   // 「文中の□」の読みがな（既定は出さない：読みがなから答えが推測できるため）
+      okuriReadingHint: true, // 「送りがな」の読みがな（漢字の読みだけを示すので、答えは漏れない。既定は出す）
       okuriCells: false,
       practiceReps: '4',
       showInstructions: true,
-      showClass: false,
-      showDate: false,
+      showClass: true,
+      showDate: true,
       subtitle: '',
       pointsEach: '',
       printBoth: false,
@@ -878,7 +879,7 @@
           : line;
       }
       case 'okuri': {
-        const stem = seg.hint && state.readingHint ? '<ruby class="hint-ruby">' + esc(seg.stem) + '<rt>' + esc(seg.hint) + '</rt></ruby>' : esc(seg.stem);
+        const stem = seg.hint && state.okuriReadingHint ? '<ruby class="hint-ruby">' + esc(seg.stem) + '<rt>' + esc(seg.hint) + '</rt></ruby>' : esc(seg.stem);
         if (!seg.one) return stem + boxesHtml(seg, answerMode);
         return stem + '<span class="box okuri-one" style="--k:' + seg.n + '">' +
           (answerMode ? '<span class="ans-okuri">' + esc(seg.chars.join('')) + '</span>' : '') + '</span>';
@@ -887,7 +888,7 @@
       case 'small': return '<span class="mas-yomi">' + esc(seg.v) + '</span>';
       case 'box': {
         const boxes = boxesHtml(seg, answerMode);
-        return seg.hint && state.readingHint ? '<ruby class="hint-ruby">' + boxes + '<rt>' + esc(seg.hint) + '</rt></ruby>' : boxes;
+        return seg.hint && state.readingHint ? '<ruby class="hint-ruby hint-ruby-box">' + boxes + '<rt>' + esc(seg.hint) + '</rt></ruby>' : boxes;
       }
       default: return textHtml(seg.v);
     }
@@ -898,11 +899,31 @@
     return len <= 14 ? 1 : len <= 26 ? 0.8 : 0.65;
   }
 
+  /** 練習マス・なぞりの、この用紙で実際に出すマスの数（1列に入る上限で切る） */
+  function practiceCellCount(ans, lay) {
+    return Math.max(ans.chars.length, 2, Math.min(ans.count, lay.maxCells));
+  }
+
+  /**
+   * 同じ段に「練習マス・なぞり」が2つ以上あるときは、その段でいちばん多いマスの数にそろえる。
+   * （「山」1字＝4マス と「学校」2字＝8マス が同じ段に並ぶと、列の高さが大きく違って見えるため）
+   * そろえる先はその段に元からある数なので、紙面からはみ出すことはない。
+   */
+  function alignPracticeCells(descs, lay) {
+    for (let t = 0; t < lay.tiers; t += 1) {
+      const practice = descs.slice(t * lay.perTier, (t + 1) * lay.perTier)
+        .filter((d) => d.ans && d.ans.kind === 'practice');
+      if (practice.length < 2) continue;
+      const max = Math.max(...practice.map((d) => practiceCellCount(d.ans, lay)));
+      practice.forEach((d) => { d.ans.cells = max; });
+    }
+  }
+
   function answerColumnHtml(d, answerMode, lay) {
     const { ans, q } = d;
     if (!ans) return '';
     if (ans.kind === 'practice') {
-      const count = Math.max(ans.chars.length, 2, Math.min(ans.count, lay.maxCells));
+      const count = ans.cells || practiceCellCount(ans, lay);
       const cells = Array.from({ length: count }, (_, i) =>
         '<span class="cell practice">' + (answerMode && ans.chars.length ? '<span class="ans-ch">' + esc(ans.chars[i % ans.chars.length]) + '</span>'
           : (!answerMode && ans.trace && ans.chars.length && i < ans.chars.length ? '<span class="trace-ch">' + esc(ans.chars[i % ans.chars.length]) + '</span>' : '')) + '</span>').join('');
@@ -1014,7 +1035,7 @@
     const hintText = (r) => {
       let text = texts[r.type];
       if (r.type === 'sentence' && state.readingHint && r.hint) text += kana ? '（□の みぎの ちいさい じは よみがなです）' : '（□の右の小さい字は 読みがなです）';
-      if (r.type === 'okuri' && state.readingHint) text += kana ? '（かん字の みぎの ちいさい じは よみがなです）' : '（右の小さい字は 読みがなです）';
+      if (r.type === 'okuri' && state.okuriReadingHint) text += kana ? '（かん字の みぎの ちいさい じは よみがなです）' : '（右の小さい字は 読みがなです）';
       return text;
     };
     // 同じ種類が離れた場所にも出るとき（交錯）は、種類ごとに「問1・3・5〜6」と番号をまとめて1行にする
@@ -1082,6 +1103,12 @@
 
   // ---- 段・文字サイズの決定 ---------------------------------------------------
 
+  // 文字の大きさ(mm)の下限。ふつうの用紙はここで止める（小学生が読める大きさの下限）
+  const MIN_FONT = 2.8;
+  // 下限まで小さくし、段の並びも変えてみて、それでも部品が枠からはみ出すときだけ、ここまで下げる。
+  // （はみ出したまま印刷すると、文の字が隣の問題に食い込んだり切れたりするので、そのほうが害が大きい）
+  const HARD_MIN_FONT = 2.2;
+
   function autoTiers(format, n) {
     if (format === 'A3-landscape') return n <= 10 ? 1 : n <= 20 ? 2 : 4;
     if (format === 'A4-landscape') return n <= 14 ? 1 : n <= 28 ? 2 : n <= 42 ? 3 : 4;
@@ -1118,7 +1145,8 @@
         const firstCol = (tierH - pad - 1.5 * f) / f; // 1列目は番号ぶん短い
         const nextCol = (tierH - pad) / f;
         const textCols = d.textLen <= firstCol ? 1 : 1 + Math.ceil((d.textLen - firstCol) / nextCol);
-        const ruby = d.segs.some((seg) => seg.hint) && state.readingHint ? 0.84 * f : 0; // 読みがな（0.6字）と、□との余白（0.24字）
+        // 読みがな（0.6字）と、□との余白（0.24字）。□（文中の□）と送りがなで、出す・出さないが別々なので、種類ごとに見る
+        const ruby = d.segs.some((seg) => seg.hint && (seg.t === 'okuri' ? state.okuriReadingHint : state.readingHint)) ? 0.84 * f : 0;
         const ansW = d.ans ? (d.ans.kind === 'free' ? (colW >= 8 * f ? 3.4 : 2.2) : 1.75) * f : 0;
         const sideW = d.segs.some((seg) => seg.side) ? 1.5 * f : 0; // 語の横に付く欄の幅
         const ansH = d.ans ? pad + 1.75 * f + d.ans.count * 1.3 * f : 0;
@@ -1127,7 +1155,7 @@
     };
     let raw = fmt.cap;
     while (raw > 0.5 && !fits(raw)) raw -= 0.1; // 下限で切る前の「本当に入る大きさ」（段数の比較に使う）
-    const f = Math.max(2.8, raw);
+    const f = Math.max(MIN_FONT, raw);
     const maxCells = Math.floor((tierH - 2.2 * f) / (1.3 * f));
     return { fmt, perTier, tiers, cols, tierH, colW, f, raw, maxCells };
   }
@@ -1138,8 +1166,15 @@
    *  - A3 横：20問は上下2段（各10問）、21問以上は4段（ご指定の仕様）
    *  - A4：1〜5段を試して、文字（＝解答マス）が大きくなる並びを選ぶ（差が1割以内なら段の少ない方）
    */
-  function computeLayout(descs, insH) {
+  function computeLayout(descs, insH, forceTiers) {
     const n = Math.max(descs.length, 1);
+    // fittedFont が「実際に描いてみて、はみ出さない」と確かめた段数があれば、それを使う
+    if (forceTiers) {
+      const lay = layoutFor(descs, Math.min(forceTiers, n), insH);
+      const want = state.tiers !== 'auto' ? Math.min(Number(state.tiers) || 1, n) : 0;
+      if (want && lay.tiers !== want) lay.note = '「並べる段の数」を' + want + '段にすると紙面に収まらないため、' + lay.tiers + '段にしました。';
+      return lay;
+    }
     if (state.tiers !== 'auto') {
       const want = Math.min(Number(state.tiers) || 1, n);
       const lay = layoutFor(descs, want, insH);
@@ -1175,45 +1210,76 @@
 
   const fontCache = { key: '', f: 0, tiers: 0 };
 
+  /** fittedFont が実測で選び直した段数（0 ＝ 推定どおり）。用紙を組み立てるときだけ使う */
+  let fittedTiers = 0;
+
   /**
    * 文字サイズの決定：寸法から推定した値を上限に、実際に(画面外で)描画して
    * はみ出しがなくなるまで少しずつ下げる。問題用紙と解答用紙で同じ大きさにそろえる。
+   *
+   * 問題数・文の長さが極端なときは、推定の時点ですでに下限（MIN_FONT）に張り付くため、
+   * 「小さくして直す」だけでは手が出ない。そこで直し方を3段階にしてある。
+   *   1. いまの並びのまま、下限まで小さくする（ふつうはここで収まる）
+   *   2. それでもはみ出すなら、段の数を変えて実際に描き直し、収まる並びを探す
+   *      （段を増やすと1問ぶんの列が広くなるので、折り返した2列目が入るようになる）
+   *   3. どの並びでも収まらないときだけ、下限を下回ってでも小さくする
    */
-  function fittedFont() {
-    const key = JSON.stringify([state.questions, state.format, state.tiers, state.font, state.readingHint,
+  /** 文字サイズの計算結果を使い回してよいかを見分ける鍵（用紙の種類も含む） */
+  function fontKey() {
+    return JSON.stringify([state.questions, state.format, state.tiers, state.font, state.readingHint, state.okuriReadingHint,
       state.showInstructions, state.showClass, state.showDate, state.okuriCells, state.practiceReps]);
-    if (fontCache.key === key) return fontCache.f;
+  }
+
+  function fittedFont() {
+    const key = fontKey();
+    if (fontCache.key === key) { fittedTiers = fontCache.tiers; return fontCache.f; }
     const items = state.showInstructions ? instructionItems(state.questions) : [];
-    let f = computeLayout(state.questions.map(describe), instructionHeight(items, FORMATS[state.format].w - 20)).f;
+    const insH = instructionHeight(items, FORMATS[state.format].w - 20);
+    let f = computeLayout(state.questions.map(describe), insH).f;
+    let tiers = 0;
     if (state.questions.length) {
       const probe = document.createElement('div');
       probe.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none';
       document.body.appendChild(probe);
+      // いまの文字サイズ・段の並びで、枠からはみ出す部品があるか（問題用紙・解答用紙の両方を見る）
+      const bad = () => ['question', 'answer'].some((m) => { probe.innerHTML = buildSheet(m, f, tiers); return overflowing(probe); });
       try {
-        while (f > 2.8) {
-          const bad = ['question', 'answer'].some((m) => { probe.innerHTML = buildSheet(m, f); return overflowing(probe); });
-          if (!bad) break;
-          f = Math.max(2.8, f * 0.96);
+        while (f > MIN_FONT && bad()) f = Math.max(MIN_FONT, f * 0.96);
+        if (bad()) {
+          const n = state.questions.length;
+          const options = [];
+          for (let t = 1; t <= Math.min(5, n); t += 1) options.push(layoutFor(state.questions.map(describe), t, insH));
+          // 推定でいちばん大きな文字が入る並びから順に試し、実際に収まった最初の並びを採る
+          options.sort((a, b) => b.raw - a.raw || a.tiers - b.tiers);
+          const hit = options.find((o) => { tiers = o.tiers; return !bad(); });
+          tiers = hit ? hit.tiers : 0;
+          while (f > HARD_MIN_FONT && bad()) f = Math.max(HARD_MIN_FONT, f * 0.96);
         }
       } finally {
         probe.remove();
       }
     }
-    f = Math.max(2.8, f * 0.985); // 画面と印刷の微差に備え、わずかに余裕を持たせる
+    // 画面と印刷の微差に備え、わずかに余裕を持たせる。
+    // 読みやすさの下限までしか小さくしていないときは、その下限より下には行かない（従来どおり）。
+    f = Math.max(f < MIN_FONT - 1e-9 ? HARD_MIN_FONT : MIN_FONT, f * 0.985);
     fontCache.key = key;
     fontCache.f = f;
+    fontCache.tiers = tiers;
+    fittedTiers = tiers;
     return f;
   }
 
-  function buildSheet(mode, fontMm) {
+  function buildSheet(mode, fontMm, forceTiers) {
     const answerMode = mode === 'answer';
     const descs = state.questions.map(describe);
     const items = state.showInstructions ? instructionItems(state.questions) : [];
-    const lay = computeLayout(descs, instructionHeight(items, FORMATS[state.format].w - 20));
+    const lay = computeLayout(descs, instructionHeight(items, FORMATS[state.format].w - 20), forceTiers);
     if (fontMm) {
       lay.f = fontMm;
       lay.maxCells = Math.floor((lay.tierH - 2.2 * fontMm) / (1.3 * fontMm));
     }
+    // 問題のHTMLを作る前にそろえる（文字サイズの実測も、そろえたあとの中身で行われる）
+    alignPracticeCells(descs, lay);
     const n = state.questions.length;
 
     let body;
@@ -1302,23 +1368,100 @@
     return parts.join(' ');
   }
 
+  /** 小学生が鉛筆で書きやすい解答マスの目安(mm) */
+  const GOOD_CELL = 7.5;
+  const FORMAT_LABELS = { 'A4-portrait': 'A4縦', 'A4-landscape': 'A4横', 'A3-landscape': 'A3横' };
+
+  /** ほかの用紙で測った解答マスの大きさ（同じ題組・同じ設定のあいだは覚えておく） */
+  const otherCellCache = new Map();
+
+  /**
+   * いまの題組のまま用紙だけを変えたら、解答マスが何mmになるかを実際に描いて測る。
+   * 「横にすれば広いから大きくなる」は、練習マス・なぞり書き・□や線の解答欄のように
+   * 下へ積む種類では成り立たない（A4横はA4縦より87mm低いため）。推測せず測る。
+   * 測れなかったときは 0 を返し、案内からその用紙を外す。
+   */
+  function cellMmForFormat(format) {
+    if (format === state.format) return fittedFont() * 1.25;
+    const backFormat = state.format;
+    const back = { key: fontCache.key, f: fontCache.f, tiers: fontCache.tiers, fitted: fittedTiers };
+    let mm = 0;
+    try {
+      state.format = format;
+      const key = fontKey();
+      if (otherCellCache.has(key)) return otherCellCache.get(key);
+      fontCache.key = ''; // いまの用紙の結果を消さずに、別の用紙として測り直す
+      mm = fittedFont() * 1.25;
+      if (otherCellCache.size > 24) otherCellCache.clear();
+      otherCellCache.set(key, mm);
+      return mm;
+    } catch (error) {
+      return 0; // 測れなくても、案内を出さないだけで動きは止めない
+    } finally {
+      state.format = backFormat;
+      fontCache.key = back.key;
+      fontCache.f = back.f;
+      fontCache.tiers = back.tiers;
+      fittedTiers = back.fitted;
+    }
+  }
+
+  /**
+   * マスが小さすぎるときの注意文（プレビューの下と、印刷前の確認の両方で使う）。
+   * 十分な大きさのときは '' を返す。
+   * 用紙の案内は、決まった順番をすすめるのではなく、ほかの用紙を実際に測ってから
+   * 「本当に大きくなる用紙」だけを、mmの数字を添えてすすめる。
+   */
+  function smallCellText(f) {
+    if (!state.questions.length) return '';
+    const writes = state.questions.some((q) => ['kaki', 'yomi', 'mas', 'trace'].includes(q.type));
+    const now = f * 1.25;
+    if (!writes || now >= GOOD_CELL) return '';
+    const descs = state.questions.map(describe);
+    const rec = recommendCount(descs);
+    const a3note = 'A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります（コンビニなどの印刷が必要です）。';
+    const head = '小学生が鉛筆で書くには小さめです。' +
+      (rec && rec < descs.length ? 'いまの用紙なら、約' + rec + '問までにすると書きやすい大きさになります。' : '');
+
+    const others = Object.keys(FORMATS).filter((k) => k !== state.format)
+      .map((k) => ({ key: k, label: FORMAT_LABELS[k] || k, mm: cellMmForFormat(k) }))
+      .filter((o) => o.mm > 0);
+    if (!others.length) return head + '問題の数を減らすと大きくなります。';
+
+    const bigger = (o) => o.mm >= now + 0.3;
+    const size = (o) => o.label + 'で約' + o.mm.toFixed(1) + 'mm';
+    const sizeWithNote = (o) => size(o) + (bigger(o) || o.mm >= GOOD_CELL ? '' : o.mm <= now - 0.3 ? '（いまより小さくなります）' : '（ほとんど変わりません）');
+    // A3は家庭のプリンターで印刷できないことがあるので、同じくらい大きくなるならA4を先にすすめる
+    const burden = (o) => (o.key === 'A3-landscape' ? 1 : 0);
+    const a3 = others.find((o) => o.key === 'A3-landscape');
+    const note = a3 && bigger(a3) ? a3note : '';
+
+    const good = others.filter((o) => o.mm >= GOOD_CELL).sort((a, b) => burden(a) - burden(b) || b.mm - a.mm);
+    if (good.length) {
+      return head + '用紙を変えると、' + others.map(sizeWithNote).join('、') + 'になります。'
+        + (good.length > 1 ? 'まずは' + good[0].label + 'にしてみてください。書きやすい大きさになります。'
+          : good[0].label + 'にすると、書きやすい大きさになります。') + note;
+    }
+    if (others.some(bigger)) {
+      return head + '用紙を変えると、' + others.map(sizeWithNote).join('、')
+        + 'になりますが、どれも書きやすい大きさ（約' + GOOD_CELL.toFixed(1) + 'mm）には届きません。問題の数を減らすことをおすすめします。' + note;
+    }
+    return head + '用紙を変えても、あまり大きくなりません（' + others.map(size).join('、')
+      + '）。問題の数を減らすことをおすすめします。';
+  }
+
   /** プレビューの下に出す「解答マスの大きさ」の目安と、直したほうがよい点 */
   function sheetInfoFor(f) {
     if (!state.questions.length) return { text: '', warn: false };
     const descs = state.questions.map(describe);
-    const lay = computeLayout(descs, insHeightFor(state.questions));
+    const lay = computeLayout(descs, insHeightFor(state.questions), fittedTiers);
     const cell = f * 1.25;
     const pt = f / 0.3528;
-    const writes = state.questions.some((q) => ['kaki', 'yomi', 'mas', 'trace'].includes(q.type));
     let text = '解答マス 約' + cell.toFixed(1) + 'mm／文字 約' + Math.round(pt) + 'pt';
     let warn = false;
-    if (writes && cell < 7.5) {
-      const rec = recommendCount(descs);
-      text += '　小学生が鉛筆で書くには小さめです。' +
-        (rec && rec < descs.length ? 'いまの用紙なら、約' + rec + '問までにすると書きやすい大きさになります。' : '') +
-        (state.format === 'A3-landscape' ? '問題の数を減らすと大きくなります。'
-          : state.format === 'A4-landscape' ? '問題の数を減らすか、A3にすると大きくなります。'
-          : '問題の数を減らすか、A3や横向きにすると大きくなります。');
+    const small = smallCellText(f);
+    if (small) {
+      text += '　' + small;
       warn = true;
     }
     if (lay.note) { text += '　' + lay.note; warn = true; }
@@ -1374,7 +1517,7 @@
   function renderPrintArea() {
     const modes = state.printBoth ? ['question', 'answer'] : [state.sheetMode];
     const f = fittedFont();
-    el.printArea.innerHTML = modes.map((m) => '<div class="print-sheet">' + buildSheet(m, f) + '</div>').join('');
+    el.printArea.innerHTML = modes.map((m) => '<div class="print-sheet">' + buildSheet(m, f, fittedTiers) + '</div>').join('');
     updatePageStyle();
   }
 
@@ -1403,7 +1546,7 @@
 
   function renderPaper() {
     const f = fittedFont();
-    el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' + buildSheet(state.sheetMode, f) + '</div></div>';
+    el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' + buildSheet(state.sheetMode, f, fittedTiers) + '</div></div>';
     applyZoom();
     renderPrintArea();
     updateSheetInfo(f);
@@ -1436,19 +1579,63 @@
     }, 1500);
   }
 
-  function doPrint() {
-    if (!state.questions.length) { toast('印刷する問題がありません。先に問題を作ってください。', 'warn'); return; }
+  /** 印刷する前に見てほしい注意（答えが見えてしまう／マスが小さい）。なければ空の配列 */
+  function printWarnings() {
+    const list = [];
     const conflicts = conflictsText();
     if (conflicts) {
-      const message = '⚠ ' + conflicts;
-      const asked = performance.now();
-      if (!window.confirm(message + '\n\nこのまま印刷しますか？')) {
-        // 確認の画面が出ずに、すぐ「いいえ」が返ってきたとき（アプリ内のブラウザ）は、画面の通知から続けられるようにする
-        if (performance.now() - asked < 40) toast(message, 'warn', { label: 'このまま印刷', run: printNow });
-        return;
-      }
+      // 答えが別の問題に出ているときと、同じ問題が2つあるだけのときで、見出しを変える
+      const leaks = findConflicts().leaks.length;
+      list.push({ title: leaks ? '答えが見えてしまう問題があります' : '同じ問題が2つ入っています', text: conflicts });
     }
-    printNow();
+    const f = fittedFont();
+    const small = smallCellText(f);
+    if (small) list.push({ title: 'マスが小さめです（解答マス 約' + (f * 1.25).toFixed(1) + 'mm）', text: small });
+    return list;
+  }
+
+  let confirmFocusBack = null;
+
+  function closePrintConfirm() {
+    if (!el.printConfirm || el.printConfirm.hidden) return;
+    el.printConfirm.hidden = true;
+    document.removeEventListener('keydown', printConfirmKeydown, true);
+    const back = confirmFocusBack;
+    confirmFocusBack = null;
+    if (back && document.contains(back)) { try { back.focus(); } catch (error) { /* 戻せなくても進行に支障はない */ } }
+  }
+
+  function printConfirmKeydown(event) {
+    if (event.key === 'Escape' || event.key === 'Esc') { event.preventDefault(); closePrintConfirm(); return; }
+    if (event.key !== 'Tab') return;
+    // 開いている間は、2つのボタンの中だけを行き来させる
+    const buttons = [el.printConfirmCancel, el.printConfirmGo];
+    const i = buttons.indexOf(document.activeElement);
+    event.preventDefault();
+    const next = event.shiftKey ? (i <= 0 ? buttons.length - 1 : i - 1) : (i < 0 || i === buttons.length - 1 ? 0 : i + 1);
+    buttons[next].focus();
+  }
+
+  /**
+   * 印刷前の確認（自作の画面内ダイアログ）。
+   * 既定（Esc・外側をタップ・最初に選ばれているボタン）はすべて「戻って直す」で、
+   * 「このまま印刷する」は、目立たないボタンを自分で押したときだけ。
+   */
+  function openPrintConfirm(warnings) {
+    if (!el.printConfirm) { printNow(); return; } // 万一ダイアログがない環境でも、印刷そのものは止めない
+    el.printConfirmBody.innerHTML = warnings.map((w) =>
+      '<div class="modal-warn"><b>⚠ ' + esc(w.title) + '</b><span>' + esc(w.text) + '</span></div>').join('');
+    confirmFocusBack = document.activeElement;
+    el.printConfirm.hidden = false;
+    document.addEventListener('keydown', printConfirmKeydown, true);
+    el.printConfirmCancel.focus();
+  }
+
+  function doPrint() {
+    if (!state.questions.length) { toast('印刷する問題がありません。先に問題を作ってください。', 'warn'); return; }
+    const warnings = printWarnings();
+    if (!warnings.length) { printNow(); return; } // 注意がないときは、じゃまをせずそのまま印刷
+    openPrintConfirm(warnings);
   }
 
   // ---- 表示切り替え・アコーディオン ------------------------------------------
@@ -1699,6 +1886,10 @@
     if (el.customKanjiLabel) el.customKanjiLabel.textContent = cfg.kanjiLabel;
     if (el.customReadingLabel) el.customReadingLabel.textContent = cfg.readingLabel;
     el.customHint.textContent = cfg.hint;
+    // 練習マス・なぞりでは例文を使わない（用紙に出ない）ので、欄ごと隠す。入力ずみの文は消さずに残す
+    const noSentence = el.customType.value === 'mas' || el.customType.value === 'trace';
+    if (el.customSentence) el.customSentence.hidden = noSentence;
+    if (el.customSentenceLabel) el.customSentenceLabel.hidden = noSentence;
   }
 
   function resetCustomForm(keepFocus) {
@@ -1764,7 +1955,7 @@
       thumb: (st) => '<span class="tv-t">くもの<i class="tv-u">巣</i></span>' + sideMark(st) },
     sentence: { desc: '□に入る漢字を書く', short: '□に漢字を書く',
       thumb: '<span class="tv-t">花の<i class="tv-b"></i>が</span>' },
-    okuri: { desc: '送りがなも書く', short: '送りがなを書く',
+    okuri: { desc: '漢字のあとに続くひらがなを書く（「借りる」の「りる」）', short: '「借りる」の「りる」',
       thumb: '<span class="tv-t"><ruby>借<rt>か</rt></ruby><i class="tv-b tv-tall"></i></span>' },
     mas: { desc: 'お手本を見て練習する', short: 'お手本を練習',
       thumb: '<span class="tv-t"><i class="tv-b tv-m">巣</i><i class="tv-b"></i><i class="tv-b"></i></span>' },
@@ -1869,6 +2060,7 @@
       b.setAttribute('aria-pressed', String(on));
     });
     el.printFormat.value = state.format;
+    if (el.gradeFormatSelect) el.gradeFormatSelect.value = state.format;
     renderTypeCounts();
     el.ocrProvider.value = state.ocrProvider;
     el.ocrVertical.checked = !!state.ocrVertical;
@@ -2065,6 +2257,10 @@
     // 印刷
     el.printBtn.addEventListener('click', doPrint);
     $('printBtn2').addEventListener('click', doPrint);
+    // 印刷前の確認：既定（外側をタップ・Esc・最初に選ばれているボタン）は「戻って直す」
+    el.printConfirmCancel.addEventListener('click', closePrintConfirm);
+    $('printConfirmBack').addEventListener('click', closePrintConfirm);
+    el.printConfirmGo.addEventListener('click', () => { closePrintConfirm(); printNow(); });
     window.addEventListener('beforeprint', renderPrintArea);
 
     // 問題を作る
@@ -2201,7 +2397,12 @@
     el.aiTheme.addEventListener('input', () => { state.aiTheme = el.aiTheme.value; refreshPromptText(); save(); });
 
     // 用紙設定
-    el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; renderPaper(); save(); });
+    el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; if (el.gradeFormatSelect) el.gradeFormatSelect.value = state.format; renderPaper(); save(); });
+    if (el.gradeFormatSelect) {
+      fillSelect(el.gradeFormatSelect, ['A4-portrait', 'A4-landscape', 'A3-landscape'], { 'A4-portrait': 'A4 縦', 'A4-landscape': 'A4 横', 'A3-landscape': 'A3 横' });
+      el.gradeFormatSelect.value = state.format; // fillSelect でいったん空になるため、ここで現在の用紙を入れ直す
+      el.gradeFormatSelect.addEventListener('change', () => { state.format = el.gradeFormatSelect.value; el.printFormat.value = state.format; renderPaper(); save(); });
+    }
     document.querySelectorAll('[data-setting]').forEach((input) => {
       const handler = () => {
         state[input.dataset.setting] = input.type === 'checkbox' ? input.checked : input.value;
@@ -2225,12 +2426,13 @@
   function cacheElements() {
     [
       'saveState', 'printBtn', 'workspace', 'toast', 'listCount', 'tabCount', 'questionList', 'paperHost', 'printArea', 'pageStyle',
-      'sheetViewport', 'gradeRange', 'genReplace', 'avoidRecent', 'typePills', 'typeCounts', 'drawStatus', 'printFormat', 'zoomFit', 'zoomLabel',
+      'sheetViewport', 'gradeRange', 'genReplace', 'avoidRecent', 'typePills', 'typeCounts', 'drawStatus', 'printFormat', 'gradeFormatSelect', 'zoomFit', 'zoomLabel',
       'sheetInfo', 'importFile', 'historyCount', 'listNotice', 'setName', 'setList',
       'ocrProvider', 'ocrVertical', 'ocrText', 'ocrStatus', 'ocrThumb', 'ocrFile', 'ocrCamera', 'ocrCameraBtn', 'ocrPickBtn', 'ocrType',
       'aiInput', 'aiTheme', 'aiType', 'aiPromptText', 'bulkText', 'bulkType',
       'customType', 'customStyle', 'customKanji', 'customReading', 'customSentence', 'customAnswer',
-      'customKanjiLabel', 'customReadingLabel', 'customHint'
+      'customKanjiLabel', 'customReadingLabel', 'customHint', 'customSentenceLabel',
+      'printConfirm', 'printConfirmBody', 'printConfirmCancel', 'printConfirmGo'
     ].forEach((id) => { el[id] = $(id); });
     el.viewport = el.sheetViewport;
   }
