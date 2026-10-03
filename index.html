@@ -32,7 +32,7 @@
             <div class="hero-copy">
               <p class="eyebrow">小学校の漢字テスト作成</p>
               <h2>縦書きの漢字テストを、<br />その場で作る。</h2>
-              <p class="hero-sub">学年から選ぶ・自分で入れる・写真から。できたら、そのまま印刷できます。</p>
+              <p class="hero-sub">学年から選ぶ・自分で入れる・写真から。できたら、そのまま印刷できます。<br />書きじゅんをおぼえる「筆順練習プリント」も作れます。</p>
             </div>
             <div class="hero-sample" aria-hidden="true">
               <span class="hs-no">①</span>
@@ -47,6 +47,14 @@
             <button class="tile" type="button" data-goto="custom" role="tab"><span class="glyph" aria-hidden="true">書</span><strong>自分で</strong><span class="sub">打つ・貼り付け</span></button>
             <button class="tile" type="button" data-goto="import" role="tab"><span class="glyph" aria-hidden="true">写</span><strong>写真・AI</strong><span class="sub">写真やAIから</span></button>
             <button class="tile tile-preview" type="button" data-goto="preview"><strong>プレビュー</strong></button>
+          </div>
+
+          <!-- 筆順練習プリントは「テストの4つめの作り方」ではなく、できあがる紙そのものが
+               別物（テストではなく練習プリント）。上の3つと同じ形で横に並べると同じ仲間に
+               見えてしまうので、区切り線を入れ、幅いっぱい・色ちがいの1枚にしている。 -->
+          <div class="quick-stroke" id="quickStroke">
+            <p class="qs-divider"><span>テストではなく、練習プリント</span></p>
+            <button class="tile tile-stroke" type="button" data-goto="stroke"><span class="glyph" aria-hidden="true">順</span><strong>筆順練習プリント</strong><span class="sub">書きじゅんの番号・なぞり書き・書き取りマス入り</span></button>
           </div>
 
           <!-- 写真・AI から取り込む -->
@@ -224,6 +232,101 @@
             </div>
           </details>
 
+          <!-- 筆順練習プリントを作る -->
+          <details class="tool" id="tool-stroke" name="tool">
+            <summary>筆順練習プリントを作る</summary>
+            <div class="tool-body">
+              <p class="hint">漢字の<strong>書きじゅん（赤い数字）</strong>と読み、なぞり書き・書き取りのマスが入った、横書きの練習プリントを作ります。小学1〜6年の1026字が使えます。</p>
+
+              <label class="field-label mt-12" for="strokeText">練習する漢字</label>
+              <textarea id="strokeText" class="text-input" rows="3" autocomplete="off" placeholder="水 花 祭（つづけて「水花祭」と打ってもかまいません）"></textarea>
+              <div id="strokeStatus" class="status-box" role="status">練習したい漢字を入れてください。下の一覧から選べます。</div>
+
+              <div class="grid-two mt-12">
+                <label>
+                  <span class="field-label">学年から選ぶ</span>
+                  <select id="strokePickGrade" class="select-input">
+                    <option value="1">小学1年</option>
+                    <option value="2">小学2年</option>
+                    <option value="3">小学3年</option>
+                    <option value="4">小学4年</option>
+                    <option value="5">小学5年</option>
+                    <option value="6">小学6年</option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">用紙の大きさ</span>
+                  <select id="strokeFormatSelect" class="select-input"></select>
+                </label>
+              </div>
+              <p class="hint">下の字を押すと、上の欄に出たり消えたりします。</p>
+              <div id="strokePickList" class="s-chips" role="group" aria-label="学年の漢字から選ぶ"></div>
+              <div class="grid-two mt-12">
+                <button type="button" id="strokeClearBtn" class="ghost-btn full-width">えらんだ字を全部消す</button>
+                <button type="button" id="strokeSampleBtn" class="soft-btn full-width">見本の字を入れる</button>
+              </div>
+
+              <details class="mini-details">
+                <summary>くわしい設定</summary>
+                <label class="block-label">
+                  <span class="field-label">プリントの名前</span>
+                  <input id="strokeTitle" class="text-input" type="text" maxlength="40" />
+                </label>
+                <div class="grid-two mt-12">
+                  <label>
+                    <span class="field-label">なぞり書きのマス</span>
+                    <select id="strokeTrace" class="select-input">
+                      <option value="0">なし</option>
+                      <option value="1">1マス</option>
+                      <option value="2">2マス</option>
+                      <option value="3">3マス</option>
+                      <option value="4">4マス</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span class="field-label">書き取りのマス</span>
+                    <select id="strokeBlank" class="select-input">
+                      <option value="2">2マス</option>
+                      <option value="3">3マス</option>
+                      <option value="4">4マス</option>
+                      <option value="5">5マス</option>
+                      <option value="6">6マス</option>
+                      <option value="8">8マス</option>
+                      <option value="10">10マス</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="hint">マスを増やすと1マスが小さくなります。小さくなりすぎるときは、用紙をA4横・A3横にしてください。</p>
+              </details>
+
+              <!-- 筆順データの正直な説明。何を確かめ、何を確かめていないかを先生に先に伝えるため。
+                   用紙の左下にも短い版（STROKE_NOTE）を入れ、ここを読むように案内している。 -->
+              <details class="mini-details" id="strokeDataNote">
+                <summary>筆順データについて（出典と、確かめた範囲）</summary>
+                <p class="hint">
+                  このプリントの筆順は、公開されている筆順データ「<strong>KanjiVG</strong>」（作成者：Ulrich Apel 氏ほか／CC BY-SA 3.0）をもとにしています。日英辞典サイトの Jisho.org など、漢字の学習サイトやアプリでも使われているデータで、誤りの指摘を受けながら修正が続けられています。読みは <strong>KANJIDIC2</strong>（電子辞書研究開発グループ／CC BY-SA 4.0）をもとに、そのうち<strong>常用漢字表</strong>（平成22年内閣告示第2号）の音訓欄に挙げられているものだけを載せています。
+                </p>
+                <p class="hint">
+                  <strong>確かめたこと</strong><br />
+                  ・小学校で習う漢字1026字すべてについて、KanjiVG の画数と KANJIDIC2 の画数が一致すること<br />
+                  ・同じ1026字すべてについて、プリントに描かれる画の数と、筆順を示す赤い番号の数が一致すること<br />
+                  ・筆順を迷いやすい「確」「成」の2字について、文部省『筆順指導の手びき』（昭和33年）に示された筆順と一致すること
+                </p>
+                <p class="hint">
+                  <strong>確かめていないこと</strong><br />
+                  教科書の筆順表と1字ずつ照らし合わせる作業は行っていません。お子さんやクラスに渡す前に、お手元の教科書の筆順表と見比べていただけると、より確実です。
+                </p>
+                <p class="hint">
+                  また、筆順は教科書によって異なることがあります。『筆順指導の手びき』にも、そこで取り上げていない筆順を誤りとするものではない、という趣旨の記述があります。違いにお気づきの場合は、お使いの教科書の筆順を優先してください。
+                </p>
+              </details>
+
+              <div class="sticky-action">
+                <button type="button" id="strokeMakeBtn" class="primary-btn full-width">筆順練習プリントを作る</button>
+              </div>
+            </div>
+          </details>
+
           <!-- 問題一覧 -->
           <section class="panel" id="listPanel">
             <div class="list-head">
@@ -270,6 +373,7 @@
             <div class="seg sheet-seg" id="sheetSeg" role="group" aria-label="用紙の種類">
               <button type="button" data-sheet="question">問題用紙</button>
               <button type="button" data-sheet="answer">解答用紙</button>
+              <button type="button" data-sheet="stroke">筆順練習</button>
             </div>
             <label class="bar-field">
               <span class="sr-only">用紙サイズ</span>
@@ -363,7 +467,27 @@
         <button type="button" class="view-btn" data-view="answer">解答</button>
       </nav>
 
-      <footer class="site-footer"><a href="changelog.html">更新履歴 ／ Changelog ／ 更新日誌</a></footer>
+      <footer class="site-footer">
+        <a href="changelog.html">更新履歴 ／ Changelog ／ 更新日誌</a>
+        <!-- 筆順練習プリントで使っているデータの出典。KanjiVG は自分の著作権表示に記載して
+             公式サイトへリンクすること、KANJIDIC2（EDRDG）は表示する画面ごとに記載することが
+             それぞれの許諾条件なので、この欄は消さないでください。 -->
+        <div class="data-credit">
+          <p>
+            筆順データ：KanjiVG（著作者 Ulrich Apel）CC BY-SA 3.0<br />
+            　<a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">https://kanjivg.tagaini.net</a>
+            ／ <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">https://creativecommons.org/licenses/by-sa/3.0/</a><br />
+            　※小学校で学ぶ1026字ぶんのデータを抽出し、本サイトの表示用に加工しています。
+          </p>
+          <p>
+            読みデータ：KANJIDIC2 — Electronic Dictionary Research and Development Group の所有物であり、<br />
+            　同グループのライセンスに従って使用しています。CC BY-SA 4.0<br />
+            　<a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">https://www.edrdg.org/wiki/index.php/KANJIDIC_Project</a>
+            ／ <a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">https://www.edrdg.org/edrdg/licence.html</a><br />
+            　※音読み・訓読みのみを抽出し、表示用に加工しています。
+          </p>
+        </div>
+      </footer>
 
       <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
@@ -385,6 +509,9 @@
     <div id="printArea" aria-hidden="true"></div>
 
     <script src="kanji-db.js"></script>
+    <!-- 筆順練習プリントの基礎データ（番号の座標・読み。約39KB gzip）。
+         字形の線は学年別（kanji-strokes-g1.js〜g6.js）で、使う学年のぶんだけ app.js が後から読み込む -->
+    <script src="kanji-strokes-base.js"></script>
     <script src="import.js"></script>
     <script src="app.js"></script>
   </body>

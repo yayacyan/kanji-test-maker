@@ -331,6 +331,33 @@ label { display: block; }
 .tile.is-active .sub { color: #d6cfc4; }
 .tile-preview { display: none; }
 
+/* 筆順練習プリント（上の3つとは別物だと分かるように、区切り線＋幅いっぱい＋赤系の下地） */
+.quick-stroke { margin: 0 0 12px; }
+.qs-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 4px 0 8px;
+  font-size: 0.72rem; letter-spacing: 0.06em; color: var(--faint);
+}
+.qs-divider::before, .qs-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.tile.tile-stroke {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px; row-gap: 2px;
+  width: 100%;
+  min-height: 0;
+  padding: 12px 14px;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px #f1cdc5;
+}
+.tile.tile-stroke .glyph { grid-row: 1 / 3; align-self: center; border-color: var(--accent); color: var(--accent); }
+.tile.tile-stroke strong { align-self: end; }
+.tile.tile-stroke .sub { align-self: start; color: var(--accent-ink); }
+.tile.tile-stroke:hover { box-shadow: inset 0 0 0 1px var(--accent); }
+.tile.tile-stroke.is-active { background: var(--accent); box-shadow: none; }
+.tile.tile-stroke.is-active .glyph { background: #fff; color: var(--accent); border-color: #fff; }
+.tile.tile-stroke.is-active strong { color: #fff; }
+.tile.tile-stroke.is-active .sub { color: #fae0db; }
+
 details.tool {
   margin: 0 0 16px;
   background: var(--surface);
@@ -475,10 +502,13 @@ details.tool:not([open]) { display: none; }
 .preview-bar .primary-btn { margin-left: auto; }
 .print-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1.2; padding-block: 6px; }
 .print-btn .print-sub { padding: 2px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); font-family: var(--font-mono); font-size: 0.64rem; font-weight: 500; }
-/* モバイルでは下のバーが問題用紙/解答用紙を切り替えるので、重複させない */
+/* 下のバーは「編集／プレビュー／解答」の3つなので、用紙が3種類（問題用紙・解答用紙・筆順練習）
+   ある今は、画面が狭いときもこの切り替えを出す。はみ出すときは折り返す */
 @media (max-width: 999px) {
-  .sheet-seg, #printBtn2 { display: none; }
+  #printBtn2 { display: none; }
   .preview-bar { border-radius: 26px; }
+  .sheet-seg { flex-wrap: wrap; }
+  .sheet-seg button { padding-inline: 12px; font-size: 0.86rem; }
 }
 
 .layout-settings { margin-bottom: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0 12px; }
@@ -743,3 +773,38 @@ details.tool:not([open]) { display: none; }
 .tv-k::after { bottom: 0; border-top: 0; border-radius: 0 0 6px 6px; }
 .tv-ln { display: block; width: 0; height: 22px; border-left: 1.5px solid var(--accent); margin: 0 5px; }
 .tv-k.tv-tk, .tv-ln.tv-tk { height: 34px; }
+
+/* ---------- 筆順練習プリント（設定画面） ---------- */
+
+.s-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 232px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 14px);
+  background: var(--field);
+  -webkit-overflow-scrolling: touch;
+}
+.s-chip {
+  min-width: 42px; min-height: 42px; padding: 2px 6px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  font-size: 1.12rem; font-weight: 600; line-height: 1.1;
+  cursor: pointer;
+}
+.s-chip:hover { box-shadow: inset 0 0 0 1px var(--ink); }
+.s-chip.is-on { background: var(--accent); color: #fff; box-shadow: none; }
+
+/* 筆順練習プリントは複数ページになる。用紙の枠をたてに並べる */
+.sheet-scaler + .sheet-scaler { margin-top: 18px; }
+
+/* 出典の表示（KANJIDIC2 は表示する画面ごとの記載が許諾条件。消さないこと） */
+.data-credit { margin: 14px auto 0; max-width: 640px; text-align: left; }
+.data-credit p { margin: 0 0 8px; color: var(--faint); font-size: 0.7rem; line-height: 1.7; word-break: break-word; }
+.data-credit a { color: var(--faint); font-size: inherit; text-decoration: underline; }
+.data-credit a:hover { color: var(--muted); }

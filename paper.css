@@ -273,3 +273,80 @@
   font-size: var(--sec-f); line-height: 1.3; font-weight: 700; text-align: center;
   border-bottom: 0.35mm solid #111; padding: 0 0 0.1em;
 }
+
+/* ---------- 筆順練習プリント（横書き。1字1行） ----------
+   筆順データ：KanjiVG (Ulrich Apel) CC BY-SA 3.0 ／ 読みデータ：KANJIDIC2 (EDRDG) CC BY-SA 4.0
+   --sg ＝ 大きい字の枠の一辺、--sc ＝ 練習マスの一辺、--sgap ＝ マスの間（すべて mm。JS が入れる） */
+
+.paper-stroke { font-size: 4mm; }
+.paper-stroke .paper-body { gap: 0; padding-top: 0; display: block; overflow: hidden; }
+/* 見出しは「名前」とページ番号と1行に収める（A4縦の 190mm に入る大きさにする） */
+.paper-stroke .paper-title { font-size: 5.8mm; letter-spacing: 0.1em; }
+.paper-stroke .fill { width: 40mm; }
+
+.s-lead { margin: 1.6mm 0 0; font-size: 3.5mm; line-height: 1.5; color: #333; }
+.s-page { font-size: 4mm; color: #444; white-space: nowrap; }
+
+.sentry {
+  display: flex;
+  align-items: flex-start;
+  gap: 5mm;
+  padding: 2.4mm 0;
+  border-bottom: 0.25mm dashed #99a3b5;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+/* ページ分けは JS が1行ずつ実測して決めるので、行の高さが「何番目か」で変わらないようにする
+   （最後の行の下線だけは消す。高さは減る方向なので、はみ出しには働かない） */
+.sentry:last-child { border-bottom: none; }
+
+/* 大きい字＋赤い番号。田字格の補助線つき */
+.s-glyph {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--sg);
+  height: var(--sg);
+  box-sizing: border-box;
+  border: 0.4mm solid #37465f;
+  background: #fff;
+}
+.s-glyph i, .s-cell i { position: absolute; background: #c3ccdb; }
+.s-glyph i.v, .s-cell i.v { left: 50%; top: 0; bottom: 0; width: 0.2mm; transform: translateX(-0.1mm); }
+.s-glyph i.h, .s-cell i.h { top: 50%; left: 0; right: 0; height: 0.2mm; transform: translateY(-0.1mm); }
+.s-glyph svg, .s-cell svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* 字・学年・画数・読み */
+.s-meta { flex: 0 0 var(--smeta); min-width: 0; font-size: 3.5mm; line-height: 1.6; }
+.s-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 1mm 1.6mm; }
+.s-ch { font-size: 6.6mm; font-weight: 700; line-height: 1.1; }
+.s-tag {
+  display: inline-block; padding: 0.2mm 1.6mm; border-radius: 2mm;
+  background: #5a6b8c; color: #fff; font-size: 2.9mm; line-height: 1.5; white-space: nowrap;
+}
+.s-yomi { margin-top: 1.2mm; }
+.s-yomi > div { display: flex; gap: 1.4mm; }
+.s-yomi .s-k { flex: 0 0 auto; color: #67707f; font-size: 2.9mm; padding-top: 0.3mm; }
+.s-yomi .s-v { min-width: 0; }
+.s-r { white-space: nowrap; }   /* 「さ（げる）」が行をまたいで切れないように */
+.s-ok { color: #c0392b; }   /* 送りがな */
+.s-more { color: #8a93a3; }
+
+/* 練習欄：なぞり書き → 書き取り */
+.s-prac { flex: 1 1 auto; min-width: 0; }
+.s-prac > p { margin: 0 0 1.2mm; font-size: 2.9mm; color: #67707f; }
+.s-cells { display: flex; flex-wrap: wrap; gap: var(--sgap); }
+.s-cell {
+  position: relative; flex: 0 0 auto;
+  width: var(--sc); height: var(--sc);
+  box-sizing: border-box;
+  border: 0.3mm solid #37465f;
+  background: #fff;
+}
+
+.s-credit {
+  position: absolute;
+  left: 10mm; bottom: 5mm; max-width: calc(100% - 20mm - 42mm);
+  font-size: 2.5mm; line-height: 1.4; color: #444; letter-spacing: 0;
+}
+
+.paper-stroke .paper-empty { font-size: 4.4mm; }

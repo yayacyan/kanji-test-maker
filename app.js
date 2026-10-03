@@ -81,6 +81,12 @@
       aiTheme: '',
       bulkText: '',
       importTypes: { ocr: 'auto', ai: 'auto', bulk: 'auto' },
+      // 筆順練習プリント（問題用紙とは別の用紙。設定もここに持つ）
+      strokeText: '',
+      strokeTitle: 'かん字の ひつじゅん れんしゅう',
+      strokeTrace: '3',
+      strokeBlank: '5',
+      strokePickGrade: '1',
       questions: []
     };
   }
@@ -157,7 +163,10 @@
     if (!Array.isArray(state.history)) state.history = [];
     state.history = state.history.filter((k) => typeof k === 'string').slice(-400);
     if (!['edit', 'preview', 'answer'].includes(state.view)) state.view = 'edit';
-    state.sheetMode = state.sheetMode === 'answer' ? 'answer' : 'question';
+    if (!['question', 'answer', 'stroke'].includes(state.sheetMode)) state.sheetMode = 'question';
+    if (state.view === 'answer' && state.sheetMode !== 'answer') state.sheetMode = 'answer';
+    if (!/^[1-6]$/.test(String(state.strokePickGrade))) state.strokePickGrade = '1';
+    state.strokeText = str(state.strokeText);
   }
 
   /** 戻り値: true = 保存データあり（初回ではない） */
@@ -1333,7 +1342,9 @@
 
     let body;
     if (!n) {
-      body = '<div class="paper-empty">まだ問題がありません。<br>上の「学年から」「自分で」「写真・AI」のどれかで問題を作ると、ここに用紙が出ます。<br><button type="button" class="soft-btn sample-btn">見本の用紙を見る</button></div>';
+      body = '<div class="paper-empty">まだ問題がありません。<br>上の「学年から」「自分で」「写真・AI」のどれかで問題を作ると、ここに用紙が出ます。' +
+        '<br><button type="button" class="soft-btn sample-btn">見本の用紙を見る</button>' +
+        '<button type="button" class="soft-btn stroke-sample-btn">筆順練習プリントの見本を見る</button></div>';
     } else {
       const rows = [];
       for (let t = 0; t < lay.tiers; t += 1) {
@@ -1585,13 +1596,16 @@
   }
 
   function applyZoom() {
-    const scaler = el.paperHost.querySelector('.sheet-scaler');
-    if (!scaler) return;
+    // 筆順練習プリントは複数ページになるので、用紙の枠が何枚あっても同じ倍率でそろえる
+    const scalers = el.paperHost.querySelectorAll('.sheet-scaler');
+    if (!scalers.length) return;
     const fmt = FORMATS[state.format];
     const s = currentScale();
-    scaler.style.width = (fmt.w * MM * s) + 'px';
-    scaler.style.height = (fmt.h * MM * s) + 'px';
-    scaler.firstElementChild.style.transform = 'scale(' + s + ')';
+    scalers.forEach((scaler) => {
+      scaler.style.width = (fmt.w * MM * s) + 'px';
+      scaler.style.height = (fmt.h * MM * s) + 'px';
+      scaler.firstElementChild.style.transform = 'scale(' + s + ')';
+    });
     el.zoomLabel.textContent = Math.round(s * 100) + '%';
   }
 
@@ -1611,6 +1625,12 @@
   }
 
   function renderPrintArea() {
+    if (state.sheetMode === 'stroke') {
+      // 筆順練習プリントは、プレビューを描いたときに作った HTML をそのまま印刷に回す
+      el.printArea.innerHTML = strokePrintHtml;
+      updatePageStyle();
+      return;
+    }
     const modes = state.printBoth ? ['question', 'answer'] : [state.sheetMode];
     const f = fittedFont();
     el.printArea.innerHTML = modes.map((m) => '<div class="print-sheet">' + buildSheet(m, f, fittedTiers, fittedCell) + '</div>').join('');
@@ -1636,11 +1656,15 @@
 
   /** 「印刷 / PDF」ボタンに、いま印刷される用紙の種類を小さく添える */
   function updatePrintLabels() {
-    const label = state.printBoth ? '問題用紙＋解答用紙' : (state.sheetMode === 'answer' ? '解答用紙' : '問題用紙');
+    const label = state.sheetMode === 'stroke'
+      ? '筆順練習' + (strokeInfo.pages > 1 ? '（' + strokeInfo.pages + 'ページ）' : '')
+      : state.printBoth ? '問題用紙＋解答用紙' : (state.sheetMode === 'answer' ? '解答用紙' : '問題用紙');
     document.querySelectorAll('.print-sub').forEach((e) => { e.textContent = label; });
   }
 
   function renderPaper() {
+    if (state.sheetMode === 'stroke') { renderStrokePaper(); return; }
+    delete el.paperHost.dataset.strokeReady;
     const f = fittedFont();
     el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' + buildSheet(state.sheetMode, f, fittedTiers, fittedCell) + '</div></div>';
     applyZoom();
@@ -1649,8 +1673,10 @@
     updatePrintLabels();
   }
 
-  /** 縦書きは右から読むので、スマホで拡大表示しているときは右端（1問目）を見せる */
+  /** 縦書きは右から読むので、スマホで拡大表示しているときは右端（1問目）を見せる。
+      筆順練習プリントは横書きなので、左端のまま */
   function scrollPreviewToStart() {
+    if (state.sheetMode === 'stroke') { el.viewport.scrollLeft = 0; return; }
     if (window.innerWidth < DESKTOP_MIN) el.viewport.scrollLeft = el.viewport.scrollWidth;
   }
 
@@ -1678,6 +1704,17 @@
   /** 印刷する前に見てほしい注意（答えが見えてしまう／マスが小さい）。なければ空の配列 */
   function printWarnings() {
     const list = [];
+    if (state.sheetMode === 'stroke') {
+      // 筆順練習プリントは答えを隠す用紙ではないので、漏れの確認は要らない。
+      // 代わりに「使えない字が落ちている」ことだけは、印刷する前に伝える
+      const ng = strokeNgText();
+      if (ng) list.push({ title: '入らなかった字があります', text: ng });
+      if (strokeInfo.cut) list.push({ title: STROKE_MAX + '字を超えました', text: 'あとの' + strokeInfo.cut + '字は入っていません。何回かに分けて作ってください。' });
+      if (strokeInfo.cell && strokeInfo.cell < GOOD_CELL) {
+        list.push({ title: '練習マスが小さめです（約' + strokeInfo.cell.toFixed(1) + 'mm）', text: 'マスの数を減らすか、用紙をA4横・A3横にすると大きくなります。' });
+      }
+      return list;
+    }
     const conflicts = conflictsText();
     if (conflicts) {
       // 答えが別の問題に出ているときと、同じ問題が2つあるだけのときで、見出しを変える
@@ -1727,10 +1764,479 @@
   }
 
   function doPrint() {
-    if (!state.questions.length) { toast('印刷する問題がありません。先に問題を作ってください。', 'warn'); return; }
+    if (state.sheetMode === 'stroke' && !strokeInfo.chars) {
+      toast('印刷する漢字がありません。先に「筆順練習プリントを作る」で漢字を入れてください。', 'warn');
+      return;
+    }
+    if (state.sheetMode !== 'stroke' && !state.questions.length) { toast('印刷する問題がありません。先に問題を作ってください。', 'warn'); return; }
     const warnings = printWarnings();
     if (!warnings.length) { printNow(); return; } // 注意がないときは、じゃまをせずそのまま印刷
     openPrintConfirm(warnings);
+  }
+
+  // ---- 筆順練習プリント ------------------------------------------------------
+  /*
+   * 既存の「問題用紙／解答用紙」とは別の用紙。縦書きではなく横書きで、1字につき1行。
+   * データ：kanji-strokes-base.js（番号の座標と読み。最初から読み込む）
+   *         kanji-strokes-g1.js〜g6.js（字形の線。その学年を使うときだけ読み込む）
+   *   筆順：KanjiVG (Ulrich Apel) CC BY-SA 3.0
+   *   読み：KANJIDIC2 (EDRDG) CC BY-SA 4.0
+   */
+
+  const KVG_BOX = 109;        // KanjiVG の座標系（109×109）
+  const STROKE_MAX = 60;      // 一度に作れる字数（これ以上はプレビューが重くなるので断る）
+  const KUN_CAP = 4;          // 訓読みを出す数の上限（これを超えたら「…」）
+  const STROKE_CELL_MIN = 9;  // 練習マスの最小(mm)。これを下回るなら段を増やす
+  const STROKE_CELL_MAX = 20; // 練習マスの最大(mm)。2cm角。これ以上大きくしても書きやすさは変わらない
+  const STROKE_CELL_FLOOR = 5; // はさみうちの下限(mm)
+  const STROKE_SG_MIN = 34;   // 手本（赤い番号つきの大字）の枠の一辺(mm)。いちばん小さいとき
+  const STROKE_SG_MAX = 52;   // 同・最大
+  const STROKE_ROWS_MAX = 3;  // 練習マスの段数の上限
+  /* 用紙のすみに出す出典。2行までに収まる長さにすること
+     （.s-credit は下から 5mm の位置にあり、用紙の下の余白は 13mm ＝ 3行目は本文に重なる）。 */
+  const STROKE_CREDIT = '筆順：KanjiVG (Ulrich Apel) CC BY-SA 3.0 ／ 読み：KANJIDIC2 (EDRDG) CC BY-SA 4.0 ／ 音訓：常用漢字表（文化庁）';
+  const STROKE_NOTE = '※筆順は教科書によって異なることがあります。出典と確かめた範囲は、作成画面の「筆順データについて」に記載しています。';
+  const STROKE_SAMPLE = '水 木 日 上 花 祭 曜 鏡';
+  /* 筆順練習を選んだ直後の、まだ何も入れていないときの画面。
+     「まだ問題がありません」（テスト用紙の文言）が出たままだと、壊れたと思われる */
+  const STROKE_EMPTY = '練習したい漢字を入れると、ここにプリントが出ます。' +
+    '<br>「筆順練習プリントを作る」の欄に打つか、学年の一覧から字を押してください。' +
+    '<br><button type="button" class="soft-btn stroke-sample-btn">見本の用紙を見る</button>';
+
+  /** "003054012048" → [[3,54],[12,48]]（3桁固定長。2桁だと100以上の座標が切れる） */
+  function strokePos(k) {
+    const s = (window.KANJI_STROKEPOS || {})[k];
+    if (!s) return null;
+    const out = [];
+    for (let i = 0; i + 6 <= s.length; i += 6) out.push([Number(s.slice(i, i + 3)), Number(s.slice(i + 3, i + 6))]);
+    return out;
+  }
+  function hasStrokeData(k) { return !!(window.KANJI_STROKEPOS || {})[k] && dbByKanji.has(k); }
+
+  /**
+   * KANJIDIC2 の読みを、用紙に出す形へ。
+   *   "." は送りがなの境目 → まつ.る を「まつ（る）」に（かっこの中は赤）
+   *   "-" は接頭辞・接尾辞 → あい- を「あい〜」に
+   * 訓読みは KUN_CAP 個まで。並びは KANJIDIC2 のままで、厳密な使用頻度順ではない。
+   * 接頭辞・接尾辞だけの形は、ふつうの読みがあるときは出さない（小学生の練習には要らない）。
+   */
+  function kunHtml(raw) {
+    if (raw.startsWith('-')) return '〜' + esc(raw.slice(1));
+    if (raw.endsWith('-')) return esc(raw.slice(0, -1)) + '〜';
+    const i = raw.indexOf('.');
+    if (i < 0) return esc(raw);
+    return esc(raw.slice(0, i)) + '<span class="s-ok">（' + esc(raw.slice(i + 1)) + '）</span>';
+  }
+  const isAffix = (r) => r.startsWith('-') || r.endsWith('-');
+
+  function yomiOf(k) {
+    const raw = (window.KANJI_YOMI || {})[k];
+    if (raw == null) return { on: [], kun: [], more: false };
+    const parts = str(raw).split('/');
+    const on = parts[0] ? parts[0].split('・') : [];
+    const all = parts[1] ? parts[1].split('・') : [];
+    const plain = all.filter((r) => !isAffix(r));
+    const kun = plain.length ? plain : all;
+    return { on, kun: kun.slice(0, KUN_CAP), more: kun.length > KUN_CAP };
+  }
+
+  // ---- 学年別の字形データ（遅延読み込み） ----
+
+  const strokeLoading = {};
+
+  function gradePathsReady(g) { return !!(window.KANJI_PATHS_GRADES || {})[String(g)]; }
+
+  function loadGradePaths(g) {
+    if (gradePathsReady(g)) return Promise.resolve();
+    if (strokeLoading[g]) return strokeLoading[g];
+    strokeLoading[g] = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'kanji-strokes-g' + g + '.js';
+      s.onload = () => resolve();
+      s.onerror = () => { delete strokeLoading[g]; reject(new Error('kanji-strokes-g' + g + '.js')); };
+      document.head.appendChild(s);
+    });
+    return strokeLoading[g];
+  }
+
+  function gradesOf(list) {
+    const set = new Set();
+    list.forEach((k) => { const e = dbByKanji.get(k); if (e) set.add(String(e.grade)); });
+    return [...set].sort();
+  }
+  function strokePathsReady(list) { return gradesOf(list).every(gradePathsReady); }
+  function ensureStrokePaths(list) { return Promise.all(gradesOf(list).map(loadGradePaths)); }
+
+  // ---- 入力の解釈 ----
+
+  /** 入力欄の文字列から、使える漢字と使えない字に分ける（重複は1つにまとめる） */
+  function parseStrokeText(text) {
+    const seen = new Set();
+    const ok = [];
+    const ng = [];
+    chars(text).forEach((c) => {
+      if (/[\s、。，．,.・／/|]/.test(c)) return;
+      if (seen.has(c)) return;
+      seen.add(c);
+      if (hasStrokeData(c)) ok.push(c); else ng.push(c);
+    });
+    return { ok, ng };
+  }
+
+  // ---- 用紙の組み立て ----
+
+  /**
+   * 用紙の寸法。省略すると「これまでと同じ、いちばん小さい並び」＝安全側の基準になる。
+   *   per … 1段に並べる練習マスの数（段数は ceil(マスの数 / per)）
+   *   sc  … 練習マスの一辺の狙い(mm)。横幅に入る分と STROKE_CELL_MAX で抑える
+   *   sg  … 手本の枠の一辺(mm)
+   */
+  function strokeGeom(opts) {
+    const o = opts || {};
+    const fmt = FORMATS[state.format];
+    const contentW = fmt.w - 20;                 // .paper の左右の余白はそれぞれ 10mm
+    const sg = Math.max(STROKE_SG_MIN, Math.min(STROKE_SG_MAX, o.sg || STROKE_SG_MIN));
+    const smeta = Math.min(58, Math.max(40, Math.round(contentW * 0.25)));
+    const gapc = 1.6;
+    const pracW = contentW - sg - smeta - 10;    // 枠と枠の間は 5mm ずつ
+    const n = Math.max(1, strokeCellCount());
+    let per = o.per;
+    if (!per) {
+      per = n;
+      for (let rows = 1; rows <= STROKE_ROWS_MAX; rows += 1) {
+        per = Math.ceil(n / rows);
+        if ((pracW + gapc) / per - gapc >= STROKE_CELL_MIN || rows === STROKE_ROWS_MAX) break;
+      }
+    }
+    per = Math.max(1, Math.min(n, per));
+    const wide = Math.min(STROKE_CELL_MAX, (pracW + gapc) / per - gapc);
+    const sc = Math.max(STROKE_CELL_FLOOR, Math.min(wide, o.sc === undefined ? wide : o.sc));
+    return { sg: sg, smeta: smeta, sc: sc, gapc: gapc, per: per, wide: wide };
+  }
+
+  /** 寸法は CSS 変数なので、HTML を作り直さずに測り直せる（はさみうちを速くするため） */
+  function applyStrokeVars(paperEl, g) {
+    paperEl.style.setProperty('--sg', g.sg + 'mm');
+    paperEl.style.setProperty('--smeta', g.smeta + 'mm');
+    paperEl.style.setProperty('--sc', g.sc.toFixed(2) + 'mm');
+    paperEl.style.setProperty('--sgap', g.gapc + 'mm');
+  }
+  function strokeTrace() { return Math.max(0, Math.min(6, Number(state.strokeTrace) || 0)); }
+  function strokeBlank() { return Math.max(0, Math.min(12, Number(state.strokeBlank) || 0)); }
+  function strokeCellCount() { return strokeTrace() + strokeBlank(); }
+
+  const GRID_I = '<i class="v"></i><i class="h"></i>';
+
+  /** 字形の線。upto を渡すと、その画までだけ描く */
+  function glyphSvg(paths, color, w, upto) {
+    const n = upto === undefined ? paths.length : upto;
+    let s = '';
+    for (let i = 0; i < n; i += 1) {
+      s += '<path d="' + paths[i] + '" fill="none" stroke="' + color + '" stroke-width="' + w +
+        '" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    return '<svg viewBox="0 0 ' + KVG_BOX + ' ' + KVG_BOX + '" aria-hidden="true">' + s + '</svg>';
+  }
+
+  /** 赤い筆順番号。白い縁取り（paint-order）を付けて、線と重なっても読めるようにする */
+  function numberSvg(pos, size) {
+    let s = '';
+    pos.forEach((p, i) => {
+      s += '<text x="' + p[0] + '" y="' + p[1] + '" font-size="' + size +
+        '" font-family="Helvetica,Arial,sans-serif" font-weight="700"' +
+        ' stroke="#fff" stroke-width="' + (size * 0.3).toFixed(2) + '" paint-order="stroke"' +
+        ' fill="#c0392b">' + (i + 1) + '</text>';
+    });
+    return '<svg viewBox="0 0 ' + KVG_BOX + ' ' + KVG_BOX + '" aria-hidden="true">' + s + '</svg>';
+  }
+
+  function strokeEntryHtml(k) {
+    const pos = strokePos(k) || [];
+    const paths = (window.KANJI_PATHS || {})[k] || [];
+    const entry = dbByKanji.get(k);
+    const y = yomiOf(k);
+    const trace = strokeTrace();
+    const blank = strokeBlank();
+    // 画数が多い字でも番号が重ならないよう、画数に応じて番号を少し小さくする
+    const numSize = pos.length > 15 ? 7.6 : pos.length > 10 ? 8.4 : 9;
+    // 読みは1つずつ包む（折り返しで「さ（げ／る）」のように1つの読みが切れないように）
+    const wrap = (h) => '<span class="s-r">' + h + '</span>';
+    const onText = y.on.length ? y.on.map((r) => wrap(esc(r))).join('・') : '—';
+    const kunText = y.kun.length
+      ? y.kun.map((r) => wrap(kunHtml(r))).join('・') + (y.more ? '<span class="s-more"> …</span>' : '')
+      : '—';
+    const label = trace && blank ? 'なぞり書き → 書き取り' : trace ? 'なぞり書き' : '書き取り';
+    return '<div class="sentry">' +
+      '<div class="s-glyph">' + GRID_I + glyphSvg(paths, '#222', 3.1) + numberSvg(pos, numSize) + '</div>' +
+      '<div class="s-meta">' +
+        '<div class="s-head"><span class="s-ch">' + esc(k) + '</span>' +
+          (entry ? '<span class="s-tag">' + entry.grade + '年</span>' : '') +
+          '<span class="s-tag">' + pos.length + '画</span></div>' +
+        '<div class="s-yomi">' +
+          '<div><span class="s-k">音</span><span class="s-v">' + onText + '</span></div>' +
+          '<div><span class="s-k">訓</span><span class="s-v">' + kunText + '</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="s-prac"><p>' + label + '</p><div class="s-cells">' +
+        new Array(trace).fill('<div class="s-cell">' + GRID_I + glyphSvg(paths, '#cfd3da', 3.1) + '</div>').join('') +
+        new Array(blank).fill('<div class="s-cell">' + GRID_I + '</div>').join('') +
+      '</div></div>' +
+    '</div>';
+  }
+
+  function strokeSheetHtml(list, pageNo, pages, empty, geom) {
+    const fmt = FORMATS[state.format];
+    const g = geom || strokeGeom();
+    // empty はこのファイル内の決まった文（STROKE_EMPTY など）だけを渡す。
+    // 利用者が打った文字は入らないので、ボタンを置けるよう HTML のまま入れる
+    const body = empty
+      ? '<div class="paper-empty">' + empty + '</div>'
+      : list.map(strokeEntryHtml).join('');
+    return '<div class="paper paper-stroke" style="' +
+      '--W:' + fmt.w + 'mm;--H:' + fmt.h + 'mm;--f:4mm;--tf:4mm;--head:14mm;' +
+      '--sg:' + g.sg + 'mm;--smeta:' + g.smeta + 'mm;--sc:' + g.sc.toFixed(2) + 'mm;--sgap:' + g.gapc + 'mm;' +
+      'font-family:' + FONT_STACKS[state.font] + '">' +
+      '<div class="paper-head">' +
+        '<div class="paper-title">' + esc(state.strokeTitle || 'かん字の ひつじゅん れんしゅう') + '</div>' +
+        (pages > 1 ? '<div class="s-page">' + pageNo + ' / ' + pages + '</div>' : '') +
+        '<div class="paper-fields"><span class="field">名前<i class="fill"></i></span></div>' +
+      '</div>' +
+      '<p class="s-lead">赤い数字は、書くじゅんばんです。うすい字をなぞってから、あいているマスに書きましょう。</p>' +
+      '<div class="paper-body">' + body + '</div>' +
+      '<div class="s-credit">' + esc(STROKE_CREDIT) + '<br>' + esc(STROKE_NOTE) + '</div>' +
+      '<div class="paper-brand">漢字テストメーカー</div>' +
+    '</div>';
+  }
+
+  /** 詰め込み：上から順に入るだけ入れる。ページ数がいちばん少なくなる分け方 */
+  function packStroke(heights, avail) {
+    const pages = [];
+    let cur = [];
+    let h = 0;
+    heights.forEach((hi, i) => {
+      if (cur.length && h + hi > avail + 0.3) { pages.push(cur); cur = []; h = 0; }
+      cur.push(i);
+      h += hi;
+    });
+    if (cur.length) pages.push(cur);
+    return pages;
+  }
+
+  /**
+   * 均し：同じページ数のまま、字数をできるだけ平らに分ける（1ページあたりの差は1字まで）。
+   * 「8字 → 6字と2字」で2枚目の7割が白い、という紙の無駄をなくすため。
+   * 行の高さは読みの長さで変わるので、平らにした分け方が本当に入るかを足して確かめ、
+   * 入らなければ詰め込みの分け方に戻す（はみ出しは絶対に出さない）。
+   */
+  function balanceStroke(heights, avail, pageCount) {
+    const n = heights.length;
+    if (pageCount < 1 || n < pageCount) return null;
+    const base = Math.floor(n / pageCount);
+    const extra = n % pageCount;
+    // 余りを前のページに寄せる／後ろに寄せる、の2通りを試す
+    for (let order = 0; order < 2; order += 1) {
+      const pages = [];
+      let i = 0;
+      let ok = true;
+      for (let p = 0; p < pageCount; p += 1) {
+        const take = base + ((order === 0 ? p < extra : p >= pageCount - extra) ? 1 : 0);
+        const page = [];
+        let h = 0;
+        for (let j = 0; j < take; j += 1) { page.push(i); h += heights[i] || 0; i += 1; }
+        if (h > avail + 0.3) { ok = false; break; }
+        pages.push(page);
+      }
+      if (ok && i === n) return pages;
+    }
+    return null;
+  }
+
+  /**
+   * 1枚に何字入るか・練習マスと手本をどこまで大きくできるかを、すべて
+   * 「画面外に実際に描いて測って」決める。寸法からの推定はしない
+   *   （長い読みが折り返して行が高くなるため。REVIEW_NOTES 第2・3・20節の教訓）。
+   *
+   * 決め方
+   *   0. これまでと同じ「いちばん小さい並び」で測り、必要なページ数を出す（＝これが下限）。
+   *   1. 紙の枚数をそれより増やさない範囲で、練習マスをできるだけ大きくする。
+   *      1段に並べるマスの数を変えながら、入る／入らないをはさみうちで 0.2mm まで詰める。
+   *      測るのは毎回、実際に出す値そのもの（第20節の失敗：測った値と出す値を変えると意味がない）。
+   *   2. マスを小さくしないまま、手本の枠も同じやり方で大きくする（画数の多い字で
+   *      赤い番号が窮屈に見えるのを緩めるため）。
+   *   3. 最後に、ページの分け方を平らに均す（白いページを作らない）。
+   */
+  function fitStroke(list) {
+    const base = strokeGeom();
+    if (!list.length) return { geom: base, pages: [[]] };
+
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:-20000px;top:0;visibility:hidden;pointer-events:none;';
+    probe.innerHTML = strokeSheetHtml(list, 1, 1, '', base);
+    document.body.appendChild(probe);
+    const paperEl = probe.querySelector('.paper');
+    const bodyEl = probe.querySelector('.paper-body');
+
+    const measure = (g) => {
+      applyStrokeVars(paperEl, g);
+      return {
+        avail: bodyEl.getBoundingClientRect().height,
+        heights: Array.from(bodyEl.children).map((r) => r.getBoundingClientRect().height)
+      };
+    };
+
+    const first = measure(base);
+    if (!first.avail || !first.heights.length) { probe.remove(); return { geom: base, pages: [list] }; }
+    const minPages = packStroke(first.heights, first.avail).length;
+    const fits = (g) => {
+      const m = measure(g);
+      return packStroke(m.heights, m.avail).length <= minPages;
+    };
+
+    let best = base;
+
+    // 1. 練習マス
+    const cells = Math.max(1, strokeCellCount());
+    const pers = [];
+    for (let rows = 1; rows <= STROKE_ROWS_MAX; rows += 1) {
+      const p = Math.ceil(cells / rows);
+      if (!pers.includes(p)) pers.push(p);
+    }
+    pers.forEach((per) => {
+      const top = strokeGeom({ per: per });
+      if (top.sc <= best.sc + 0.01) return;                   // この並びでは今より大きくならない
+      if (fits(top)) { best = top; return; }                  // 横幅いっぱいでも入る
+      const floor = strokeGeom({ per: per, sc: STROKE_CELL_FLOOR });
+      if (floor.sc >= best.sc - 0.01 || !fits(floor)) return; // この並びは下限でも入らない／得がない
+      let lo = floor.sc;                                      // 入ると分かっている
+      let hi = top.sc;                                        // 入らないと分かっている
+      for (let i = 0; i < 6 && hi - lo > 0.2; i += 1) {
+        const mid = (lo + hi) / 2;
+        if (fits(strokeGeom({ per: per, sc: mid }))) lo = mid; else hi = mid;
+      }
+      if (lo > best.sc + 0.01) best = strokeGeom({ per: per, sc: lo });
+    });
+
+    // 2. 手本の枠（マスを小さくしない範囲で）
+    for (let sg = STROKE_SG_MIN + 2; sg <= STROKE_SG_MAX; sg += 2) {
+      const g = strokeGeom({ per: best.per, sc: best.sc, sg: sg });
+      if (g.sc < best.sc - 0.01) break;                       // 横幅が足りなくなった
+      if (!fits(g)) break;
+      best = g;
+    }
+
+    // 3. ページの分け方（平らに均す。入らなければ詰め込みに戻す）
+    const last = measure(best);
+    const idx = balanceStroke(last.heights, last.avail, minPages) || packStroke(last.heights, last.avail);
+    probe.remove();
+    return { geom: best, pages: idx.map((page) => page.map((i) => list[i])) };
+  }
+
+  /** 画面と印刷の両方に出す HTML。プレビューを描いたときに作って覚えておく（印刷は同期で動くため） */
+  let strokePrintHtml = '';
+  let strokeInfo = { pages: 0, chars: 0, ng: [], cut: 0, cell: 0 };
+  let strokeToken = 0;
+
+  function paintStroke(list, ng, cut) {
+    const fit = fitStroke(list);
+    const pages = fit.pages;
+    const empty = list.length ? '' : STROKE_EMPTY;
+    const sheets = pages.map((p, i) => strokeSheetHtml(p, i + 1, pages.length, i === 0 ? empty : '', fit.geom));
+    el.paperHost.innerHTML = sheets.map((s) => '<div class="sheet-scaler"><div class="paper-wrap">' + s + '</div></div>').join('');
+    strokePrintHtml = sheets.map((s) => '<div class="print-sheet">' + s + '</div>').join('');
+    strokeInfo = { pages: list.length ? pages.length : 0, chars: list.length, ng: ng, cut: cut, cell: fit.geom.sc };
+    applyZoom();
+    renderPrintArea();
+    updateStrokeInfo();
+    updatePrintLabels();
+    el.paperHost.dataset.strokeReady = '1';
+    el.paperHost.dataset.strokePages = String(strokeInfo.pages);
+  }
+
+  function renderStrokePaper() {
+    const parsed = parseStrokeText(state.strokeText);
+    const list = parsed.ok.slice(0, STROKE_MAX);
+    const cut = parsed.ok.length - list.length;
+    const token = ++strokeToken;
+    el.paperHost.dataset.strokeReady = '0';
+    if (!list.length || strokePathsReady(list)) { paintStroke(list, parsed.ng, cut); return; }
+    el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' +
+      strokeSheetHtml([], 1, 1, '字のかたちを よみこんでいます…') + '</div></div>';
+    applyZoom();
+    ensureStrokePaths(list).then(() => {
+      if (token !== strokeToken || state.sheetMode !== 'stroke') return;
+      paintStroke(list, parsed.ng, cut);
+    }).catch(() => {
+      if (token !== strokeToken) return;
+      el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' +
+        strokeSheetHtml([], 1, 1, '字のかたちのデータを読み込めませんでした。ページを開き直してください。') + '</div></div>';
+      applyZoom();
+      el.paperHost.dataset.strokeReady = '1';
+      toast('字のかたちのデータを読み込めませんでした。通信を確かめて、ページを開き直してください。', 'warn');
+    });
+  }
+
+  function strokeNgText() {
+    if (!strokeInfo.ng.length) return '';
+    return '小学校の漢字ではないため、使えない字がありました：' + strokeInfo.ng.join('、') +
+      '（小学1〜6年の1026字から選んでください）';
+  }
+
+  function updateStrokeInfo() {
+    const parts = [];
+    if (strokeInfo.chars) {
+      parts.push(strokeInfo.chars + '字・' + strokeInfo.pages + 'ページ（練習マス 約' + strokeInfo.cell.toFixed(1) + 'mm）');
+    } else {
+      parts.push('練習したい漢字を入れると、ここに用紙が出ます。');
+    }
+    if (strokeInfo.cut) parts.push('一度に作れるのは' + STROKE_MAX + '字までです。あとの' + strokeInfo.cut + '字は入っていません。');
+    const ng = strokeNgText();
+    if (ng) parts.push('⚠ ' + ng);
+    el.sheetInfo.textContent = parts.join(' ／ ');
+    el.sheetInfo.className = 'sheet-info' + (ng || strokeInfo.cut ? ' is-warn' : '');
+    el.sheetInfo.hidden = false;
+    if (el.listNotice) { el.listNotice.innerHTML = ''; el.listNotice.hidden = true; }
+  }
+
+  /** 学年の漢字を一覧から選ぶ（打ち間違いが起きないので、こちらが主な入れ方） */
+  function renderStrokePicker() {
+    const g = el.strokePickGrade.value;
+    const picked = new Set(parseStrokeText(state.strokeText).ok);
+    el.strokePickList.innerHTML = KANJI_DB
+      .filter((e) => String(e.grade) === g && hasStrokeData(e.kanji))
+      .map((e) => '<button type="button" class="s-chip' + (picked.has(e.kanji) ? ' is-on' : '') +
+        '" data-kanji="' + esc(e.kanji) + '" aria-pressed="' + picked.has(e.kanji) + '">' + esc(e.kanji) + '</button>')
+      .join('');
+  }
+
+  function setStrokeText(text, keepPicker) {
+    state.strokeText = text;
+    if (el.strokeText.value !== text) el.strokeText.value = text;
+    updateStrokeCount();
+    if (!keepPicker) renderStrokePicker();
+    if (state.sheetMode === 'stroke') scheduleStroke();
+    save();
+  }
+
+  function updateStrokeCount() {
+    const parsed = parseStrokeText(state.strokeText);
+    const bits = [parsed.ok.length + '字'];
+    if (parsed.ok.length > STROKE_MAX) bits.push('（' + STROKE_MAX + '字までしか入りません）');
+    if (parsed.ng.length) bits.push('使えない字：' + parsed.ng.join('、'));
+    el.strokeStatus.textContent = parsed.ok.length || parsed.ng.length
+      ? bits.join(' ')
+      : '練習したい漢字を入れてください。下の一覧から選べます。';
+    el.strokeStatus.className = 'status-box' + (parsed.ng.length || parsed.ok.length > STROKE_MAX ? ' is-warn' : '');
+  }
+
+  const scheduleStroke = debounce(() => { if (state.sheetMode === 'stroke') renderStrokePaper(); }, 160);
+
+  function toggleStrokeChar(k) {
+    const parsed = parseStrokeText(state.strokeText);
+    const set = parsed.ok;
+    const i = set.indexOf(k);
+    if (i >= 0) set.splice(i, 1); else set.push(k);
+    setStrokeText(set.join(' ') + (parsed.ng.length ? ' ' + parsed.ng.join(' ') : ''), true);
+    renderStrokePicker();
   }
 
   // ---- 表示切り替え・アコーディオン ------------------------------------------
@@ -1743,7 +2249,10 @@
 
   function setView(view, fromHistory) {
     state.view = view;
-    if (view !== 'edit') state.sheetMode = view === 'answer' ? 'answer' : 'question';
+    // 「プレビュー」は、いま見ている用紙（問題用紙か筆順練習）をそのまま見せる。
+    // 「解答」だけは解答用紙に切り替える
+    if (view === 'answer') state.sheetMode = 'answer';
+    else if (view === 'preview' && state.sheetMode === 'answer') state.sheetMode = 'question';
     applyView();
     renderPaper();
     window.scrollTo({ top: 0 });
@@ -1760,9 +2269,47 @@
     save();
   }
 
-  /** 上の3つの選択（学年から／自分で／写真・AI）の、選ばれている状態を合わせる */
+  /** 「筆順練習プリントを作る」を押したとき。編集中でも、できた用紙をすぐ見せる */
+  function showStrokeSheet() {
+    const parsed = parseStrokeText(state.strokeText);
+    if (!parsed.ok.length) {
+      toast(parsed.ng.length
+        ? '小学校の漢字が入っていません（' + parsed.ng.join('、') + 'は使えません）'
+        : '練習したい漢字を入れてください。下の学年の一覧からも選べます。', 'warn');
+      el.strokeText.focus();
+      return;
+    }
+    state.sheetMode = 'stroke';
+    setView('preview');
+  }
+
+  /**
+   * 筆順練習プリントの見本。何も打たなくても「できあがり」が見られるようにする
+   * （初めての人が、どんな紙ができるのか分からないままだったため）。
+   */
+  function loadStrokeSample() {
+    openTool('stroke');
+    state.sheetMode = 'stroke';
+    setStrokeText(STROKE_SAMPLE);
+    applyView();
+    renderPaper();
+    save();
+    toast('見本の字を入れました。この字を入れ替えると、自分の練習プリントになります', '');
+  }
+
+  /**
+   * えらんだ道具に合わせて、右のプレビューも切り替える。
+   * 筆順練習プリントを選んだのに「まだ問題がありません」（テスト用紙の文言）が出たままだと、
+   * 壊れたと思われるため（テスターの指摘）。逆に、テストの道具に戻したら問題用紙に戻す。
+   */
+  function syncSheetModeToTool(name) {
+    const want = name === 'stroke' ? 'stroke' : (state.sheetMode === 'stroke' ? 'question' : '');
+    if (want && want !== state.sheetMode) setSheetMode(want);
+  }
+
+  /** 入口のカード（学年から／自分で／写真・AI／筆順練習）の、選ばれている状態を合わせる */
   function syncTiles() {
-    document.querySelectorAll('#quickActions .tile[data-goto]').forEach((tile) => {
+    document.querySelectorAll('#quickActions .tile[data-goto], #quickStroke .tile[data-goto]').forEach((tile) => {
       const on = tile.dataset.goto === state.openTool;
       tile.classList.toggle('is-active', on);
       tile.setAttribute('aria-selected', String(on));
@@ -2139,6 +2686,13 @@
     select.innerHTML = values.map((v) => '<option value="' + esc(v) + '">' + esc(labels[v]) + '</option>').join('');
   }
 
+  /** 用紙サイズの選択は3か所にある（プレビューのバー・学年から作る・筆順練習）。いつも同じ値にそろえる */
+  function syncFormatSelects() {
+    [el.printFormat, el.gradeFormatSelect, el.strokeFormatSelect].forEach((sel) => {
+      if (sel && sel.value !== state.format) sel.value = state.format;
+    });
+  }
+
   function syncControls() {
     el.gradeRange.value = state.gen.range;
     el.genReplace.checked = !!state.gen.replace;
@@ -2154,8 +2708,14 @@
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-pressed', String(on));
     });
-    el.printFormat.value = state.format;
-    if (el.gradeFormatSelect) el.gradeFormatSelect.value = state.format;
+    syncFormatSelects();
+    el.strokeText.value = state.strokeText;
+    el.strokeTitle.value = state.strokeTitle;
+    el.strokeTrace.value = state.strokeTrace;
+    el.strokeBlank.value = state.strokeBlank;
+    el.strokePickGrade.value = state.strokePickGrade;
+    updateStrokeCount();
+    renderStrokePicker();
     renderTypeCounts();
     el.ocrProvider.value = state.ocrProvider;
     el.ocrVertical.checked = !!state.ocrVertical;
@@ -2335,9 +2895,9 @@
     // 表示切り替え
     document.querySelectorAll('#viewTabs .view-btn').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
     document.querySelectorAll('#sheetSeg button').forEach((b) => b.addEventListener('click', () => setSheetMode(b.dataset.sheet)));
-    document.querySelectorAll('#quickActions .tile').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#quickActions .tile, #quickStroke .tile').forEach((b) => b.addEventListener('click', () => {
       if (b.dataset.goto === 'preview') setView('preview');
-      else openTool(b.dataset.goto);
+      else { openTool(b.dataset.goto); syncSheetModeToTool(b.dataset.goto); }
     }));
 
     // アコーディオン（1つだけ開く）
@@ -2346,6 +2906,7 @@
       document.querySelectorAll('details.tool').forEach((o) => { if (o !== d) o.open = false; });
       state.openTool = d.id.replace('tool-', '');
       syncTiles();
+      syncSheetModeToTool(state.openTool);
       save();
     }));
 
@@ -2398,6 +2959,30 @@
       save();
     });
     $('generateBtn').addEventListener('click', drawQuestions);
+
+    // 筆順練習プリント
+    el.strokeText.addEventListener('input', () => setStrokeText(el.strokeText.value));
+    el.strokePickGrade.addEventListener('change', () => { state.strokePickGrade = el.strokePickGrade.value; renderStrokePicker(); save(); });
+    el.strokePickList.addEventListener('click', (event) => {
+      const b = event.target.closest('.s-chip');
+      if (b) toggleStrokeChar(b.dataset.kanji);
+    });
+    $('strokeClearBtn').addEventListener('click', () => { setStrokeText(''); toast('えらんだ字を消しました'); });
+    $('strokeSampleBtn').addEventListener('click', () => { setStrokeText(STROKE_SAMPLE); toast('見本の字を入れました'); });
+    el.strokeTitle.addEventListener('input', () => { state.strokeTitle = el.strokeTitle.value; scheduleStroke(); save(); });
+    [el.strokeTrace, el.strokeBlank].forEach((sel) => sel.addEventListener('change', () => {
+      state.strokeTrace = el.strokeTrace.value;
+      state.strokeBlank = el.strokeBlank.value;
+      scheduleStroke();
+      save();
+    }));
+    el.strokeFormatSelect.addEventListener('change', () => {
+      state.format = el.strokeFormatSelect.value;
+      syncFormatSelects();
+      renderPaper();
+      save();
+    });
+    $('strokeMakeBtn').addEventListener('click', showStrokeSheet);
 
     // スマホで文字を入力している間（キーボードが出ている間）は、下の「編集／プレビュー／解答」の帯を隠す
     // （キーボードが出ると、固定表示の帯が画面の中ほどに浮いて、入力欄をふさぐため）
@@ -2467,7 +3052,11 @@
       if (button.dataset.setAction === 'load') loadSet(item.dataset.setId);
       else deleteSet(item.dataset.setId);
     });
-    el.paperHost.addEventListener('click', (event) => { if (event.target.closest('.sample-btn')) loadSample(); });
+    // 用紙が空のときに出る見本ボタン（テスト用紙の見本／筆順練習プリントの見本）
+    el.paperHost.addEventListener('click', (event) => {
+      if (event.target.closest('.stroke-sample-btn')) loadStrokeSample();
+      else if (event.target.closest('.sample-btn')) loadSample();
+    });
 
     // ブラウザの「戻る」で、サイトから出ずに前の画面（編集⇔プレビュー）へ戻る
     window.addEventListener('popstate', (event) => {
@@ -2492,11 +3081,11 @@
     el.aiTheme.addEventListener('input', () => { state.aiTheme = el.aiTheme.value; refreshPromptText(); save(); });
 
     // 用紙設定
-    el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; if (el.gradeFormatSelect) el.gradeFormatSelect.value = state.format; renderPaper(); save(); });
+    el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; syncFormatSelects(); renderPaper(); save(); });
     if (el.gradeFormatSelect) {
       fillSelect(el.gradeFormatSelect, ['A4-portrait', 'A4-landscape', 'A3-landscape'], { 'A4-portrait': 'A4 縦', 'A4-landscape': 'A4 横', 'A3-landscape': 'A3 横' });
       el.gradeFormatSelect.value = state.format; // fillSelect でいったん空になるため、ここで現在の用紙を入れ直す
-      el.gradeFormatSelect.addEventListener('change', () => { state.format = el.gradeFormatSelect.value; el.printFormat.value = state.format; renderPaper(); save(); });
+      el.gradeFormatSelect.addEventListener('change', () => { state.format = el.gradeFormatSelect.value; syncFormatSelects(); renderPaper(); save(); });
     }
     document.querySelectorAll('[data-setting]').forEach((input) => {
       const handler = () => {
@@ -2527,7 +3116,8 @@
       'aiInput', 'aiTheme', 'aiType', 'aiPromptText', 'bulkText', 'bulkType',
       'customType', 'customStyle', 'customKanji', 'customReading', 'customSentence', 'customAnswer',
       'customKanjiLabel', 'customReadingLabel', 'customHint', 'customSentenceLabel',
-      'printConfirm', 'printConfirmBody', 'printConfirmCancel', 'printConfirmGo'
+      'printConfirm', 'printConfirmBody', 'printConfirmCancel', 'printConfirmGo',
+      'strokeText', 'strokeStatus', 'strokeTitle', 'strokeTrace', 'strokeBlank', 'strokePickGrade', 'strokePickList', 'strokeFormatSelect'
     ].forEach((id) => { el[id] = $(id); });
     el.viewport = el.sheetViewport;
   }
@@ -2545,6 +3135,7 @@
     TYPES.forEach((t) => { importTypes[t] = TYPE_LABELS[t]; });
     ['ocrType', 'aiType', 'bulkType'].forEach((id) => fillSelect(el[id], Object.keys(importTypes), importTypes));
     el.ocrProvider.innerHTML = Object.keys(KI.OCR_PROVIDERS).map((k) => '<option value="' + k + '">' + esc(KI.OCR_PROVIDERS[k].label) + '</option>').join('');
+    fillSelect(el.strokeFormatSelect, ['A4-portrait', 'A4-landscape', 'A3-landscape'], { 'A4-portrait': 'A4 縦', 'A4-landscape': 'A4 横', 'A3-landscape': 'A3 横' });
     renderTypePills();
     document.querySelectorAll('.type-picker').forEach(buildTypePicker);
 
