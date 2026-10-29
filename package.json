@@ -1,0 +1,18 @@
+{
+  "name": "kanji-test-maker",
+  "private": true,
+  "description": "漢字テストメーカー。ウェブサイトと、まだ公開しないストア用アプリの入れ物です。",
+  "scripts": {
+    "www": "node scripts/copy-www.mjs",
+    "cap:sync": "npm run www && cap sync",
+    "android:debug": "npm run cap:sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}

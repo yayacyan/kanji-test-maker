@@ -497,6 +497,10 @@
       </nav>
 
       <footer class="site-footer">
+        <p class="sponsor-line" data-sponsor hidden>
+          <span data-i18n="sponsor-note">この道具が役に立ったら、制作を</span>
+          <a data-sponsor-link href="#" target="_blank" rel="noopener" data-i18n="sponsor">応援する</a>
+        </p>
         <a href="changelog.html" data-i18n="changelog">更新履歴 ／ Changelog ／ 更新日誌</a>
         <!-- 筆順練習プリントで使っているデータの出典。KanjiVG は自分の著作権表示に記載して
              公式サイトへリンクすること、KANJIDIC2（EDRDG）は表示する画面ごとに記載することが
@@ -518,6 +522,18 @@
         </div>
       </footer>
 
+      <!-- アプリ内の応援（課金）。ENABLE_IAP_TIPS が false のあいだは出さない。
+           TODO: Google Play Billing / StoreKit をつないでから、config.js の ENABLE_IAP_TIPS を true にする。 -->
+      <section id="supportScreen" class="support-screen" hidden>
+        <h2 data-i18n="support-title">応援する</h2>
+        <p class="hint" data-i18n="support-stub">アプリの中からの応援は、まだ準備中です。</p>
+        <div class="support-tiers">
+          <button type="button" class="soft-btn" data-tip="small" disabled data-i18n="support-tier-1">お茶を一杯</button>
+          <button type="button" class="soft-btn" data-tip="medium" disabled data-i18n="support-tier-2">おやつ</button>
+          <button type="button" class="soft-btn" data-tip="large" disabled data-i18n="support-tier-3">食事をごちそう</button>
+        </div>
+      </section>
+
       <!-- 印刷前の確認（答えが見えてしまう／マスが小さい）。既定は「戻って直す」 -->
       <div id="printConfirm" class="modal" hidden>
         <div class="modal-back" id="printConfirmBack"></div>
@@ -535,6 +551,7 @@
     <!-- 印刷専用（画面では非表示。印刷時だけここが出力される） -->
     <div id="printArea" aria-hidden="true"></div>
 
+    <script src="config.js"></script>
     <script src="kanji-db.js"></script>
     <!-- 筆順練習プリントの基礎データ（番号の座標・読み。約39KB gzip）。
          字形の線は学年別（kanji-strokes-g1.js〜g6.js）で、使う学年のぶんだけ app.js が後から読み込む -->
