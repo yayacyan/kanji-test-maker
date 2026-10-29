@@ -258,8 +258,7 @@ label { display: block; }
   .pane-preview { display: flex; flex-direction: column; overflow: hidden; padding: 2px 0 0; }
   .sheet-viewport { flex: 1; min-height: 0; overflow: auto; }
   #printBtn { display: none; } /* 右のプレビューバーに同じボタンがある */
-  /* 左の設定にも同じ「用紙の大きさ」があり、2つ同時に見えると迷うので、こちらを隠す（狭い画面では左右が同時に見えないため、そのまま出す） */
-  .preview-bar .bar-field { display: none; }
+  /* 用紙の大きさはプレビューの横に常に出す。どの欄を開いていても、ここから変えられる */
 }
 
 /* ---------- 「つくる」ペイン ---------- */
@@ -500,6 +499,11 @@ details.tool:not([open]) { display: none; }
 .zoom-group .fit-btn { padding-inline: 12px; font-size: 0.84rem; white-space: nowrap; }
 .zoom-label { min-width: 42px; text-align: center; font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; color: var(--muted); }
 .preview-bar .primary-btn { margin-left: auto; }
+.preview-bar .bar-field { display: inline-flex; align-items: center; gap: 6px; }
+.bar-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.lang-switch { display: inline-flex; align-items: center; padding: 3px; border-radius: 999px; background: var(--field); gap: 2px; }
+.lang-switch button { min-height: 40px; padding: 0 10px; border-radius: 999px; background: transparent; color: var(--muted); font-size: 0.75rem; font-weight: 800; }
+.lang-switch button.is-active { background: var(--black); color: #fff; }
 .print-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1.2; padding-block: 6px; }
 .print-btn .print-sub { padding: 2px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); font-family: var(--font-mono); font-size: 0.64rem; font-weight: 500; }
 /* 下のバーは「編集／プレビュー／解答」の3つなので、用紙が3種類（問題用紙・解答用紙・筆順練習）
@@ -554,13 +558,13 @@ details.tool:not([open]) { display: none; }
 
 .toast {
   position: fixed;
-  left: 50%;
-  top: calc(env(safe-area-inset-top, 0px) + 84px); /* 下のボタンや用紙を隠さない */
+  left: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 78px); /* 上の帯の下。プレビュー（右側・下側）にはかぶせない */
   z-index: 60;
   width: max-content;
-  max-width: min(92vw, 540px);
+  max-width: min(440px, calc(100vw - 24px));
   padding: 12px 20px;
-  transform: translateX(-50%);
+  transform: none;
   border-radius: 26px;
   background: var(--black);
   color: #fff;
@@ -581,7 +585,9 @@ details.tool:not([open]) { display: none; }
   white-space: nowrap;
 }
 .toast.is-warn .toast-action { background: rgba(0, 0, 0, 0.1); }
-@media (min-width: 1000px) { .toast { top: auto; bottom: 24px; } }
+@media (min-width: 1000px) {
+  .toast { top: 86px; left: 16px; max-width: 400px; }
+}
 
 /* ---------- 印刷前の確認（画面内のダイアログ） ---------- */
 

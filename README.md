@@ -17,6 +17,8 @@
 
 ![15問の漢字テスト（A4縦）](samples/sample-15-questions.png)
 
+記事などに載せる広い画像は `samples/sample-15-questions-medium.png`（幅 1600px）です。
+
 `REVIEW_NOTES.md`／`STAGE_NOTES.md`／`reviews/` は開発中の確認記録です（評価者は AI）。
 
 ## 更新履歴

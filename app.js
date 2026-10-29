@@ -74,7 +74,7 @@
       view: 'edit',
       sheetMode: 'question',
       zoom: 'auto',
-      format: 'A4-portrait',
+      format: (window.KanjiI18n ? window.KanjiI18n.defaultPaper() : 'A4-portrait'),
       tiers: 'auto',
       title: '漢字テスト',
       showName: true,
@@ -112,6 +112,9 @@
 
   const state = defaultState();
   const ui = { openId: null, bootToolId: null };
+  const I18n = window.KanjiI18n;
+  const uiLang = () => (I18n ? I18n.lang() : 'ja');
+  const phrase = (ja, en) => (uiLang() === 'en' ? en : ja);
 
   const $ = (id) => document.getElementById(id);
   const el = {};
@@ -224,10 +227,10 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       const now = new Date();
-      const label = 'この端末に保存済み ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      const label = phrase('この端末に保存済み ', 'Saved on this device ') + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       document.querySelectorAll('.save-state').forEach((e) => { e.textContent = label; e.classList.remove('is-error'); });
     } catch (error) {
-      document.querySelectorAll('.save-state').forEach((e) => { e.textContent = '保存できません'; e.classList.add('is-error'); });
+      document.querySelectorAll('.save-state').forEach((e) => { e.textContent = phrase('保存できません', 'Could not save'); e.classList.add('is-error'); });
     }
   }
   const save = debounce(persist, 250);
@@ -250,7 +253,7 @@
     el.toast.title = 'タップで消えます';
     el.toast.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.toast.hidden = true; }, action ? 9000 : 6000);
+    toastTimer = setTimeout(() => { el.toast.hidden = true; }, action ? 7000 : 4000);
   }
 
   // ---- 問題を作る（学年から選ぶ） ---------------------------------------------
@@ -350,7 +353,7 @@
   function renderTypeCounts() {
     const types = TYPES.filter((t) => state.gen.types.includes(t));
     el.typeCounts.innerHTML = '<div class="tc-title">種類ごとの問題数</div><div class="tc-grid">' +
-      types.map((t) => '<label class="tc-item"><span>' + esc(TYPE_LABELS[t]) + '</span>' +
+      types.map((t) => '<label class="tc-item"><span>' + esc(I18n.typeLabel(t)) + '</span>' +
         '<input type="number" inputmode="numeric" min="0" max="100" data-count-type="' + t + '" value="' + (Number(state.gen.counts[t]) || 0) + '"></label>').join('') +
       '</div><div class="tc-total">合計 <strong>' + countsTotal() + '</strong>問</div>';
   }
@@ -421,12 +424,12 @@
   }
 
   function drawQuestions() {
-    if (!KANJI_DB.length) { toast('問題データを読み込めませんでした。ページを開き直してください。', 'warn'); return; }
+    if (!KANJI_DB.length) { toast(phrase('問題データを読み込めませんでした。ページを開き直してください。', 'The question data did not load. Reopen the page.'), 'warn'); return; }
     const { range, types, replace, avoidRecent } = state.gen;
     const plan = TYPES.filter((t) => types.includes(t))
       .map((t) => ({ type: t, n: Math.max(0, Math.floor(Number(state.gen.counts[t]) || 0)) }));
     const total = plan.reduce((sum, p) => sum + p.n, 0);
-    if (!total) { toast('問題の数を1以上にしてください', 'warn'); return; }
+    if (!total) { toast(phrase('問題の数を1以上にしてください', 'Choose at least 1 question'), 'warn'); return; }
 
     const base = replace ? state.questions.filter((q) => q.source !== 'bank') : state.questions.slice();
     const replacedCount = replace ? state.questions.length - base.length : 0;
@@ -466,12 +469,15 @@
     const short = drawn.length < total;
     const okuriShort = okuriPlan && okuriEntries.length < okuriPlan.n;
     el.drawStatus.textContent = (short
-      ? drawn.length + '問になりました（この範囲で、重ならない' + (okuriShort ? '漢字や送りがなのある語' : '漢字') + 'が足りませんでした）。'
-      : drawn.length + '問を作りました。' + (replacedCount ? '（前回に作った問題' + replacedCount + '問は入れ替えました）' : '')) +
-      (recentHits ? ' 以前に出した漢字を' + recentHits + '字さけきれませんでした（「くわしい設定」で記録を消せます）。' : '');
+      ? phrase(drawn.length + '問になりました（この範囲で、重ならない' + (okuriShort ? '漢字や送りがなのある語' : '漢字') + 'が足りませんでした）。',
+        'Made ' + drawn.length + ' (not enough different ' + (okuriShort ? 'kanji or okurigana words' : 'kanji') + ' in this range).')
+      : phrase(drawn.length + '問を作りました。', 'Made ' + drawn.length + ' questions.') + (replacedCount ? phrase('（前回に作った問題' + replacedCount + '問は入れ替えました）', ' (Replaced ' + replacedCount + ' questions from last time.)') : '')) +
+      (recentHits ? phrase(' 以前に出した漢字を' + recentHits + '字さけきれませんでした（「くわしい設定」で記録を消せます）。',
+        ' Could not avoid ' + recentHits + ' kanji used before (clear the record under More settings).') : '');
     afterQuestionsChanged();
-    toast(drawn.length + '問を作りました（合計 ' + state.questions.length + '問）', '', {
-      label: 'プレビューを見る', run: () => setView('preview')
+    toast(phrase(drawn.length + '問を作りました（合計 ' + state.questions.length + '問）',
+      'Made ' + drawn.length + ' questions (' + state.questions.length + ' total)'), '', {
+      label: phrase('プレビューを見る', 'See the preview'), run: () => setView('preview')
     });
   }
 
@@ -504,8 +510,10 @@
     });
     if (!changed && !skipped) { toast('変える問題がありません', 'warn'); return; }
     afterQuestionsChanged();
-    toast(changed + '問を「' + TYPE_LABELS[type] + '」に変えました' +
-      (skipped ? '（' + skipped + '問は、漢字のあとにひらがなが続く語ではないので、そのままです）' : ''), skipped ? 'warn' : '');
+    toast(phrase(changed + '問を「' + TYPE_LABELS[type] + '」に変えました',
+      'Changed ' + changed + ' to “' + I18n.typeLabel(type) + '”') +
+      (skipped ? phrase('（' + skipped + '問は、漢字のあとにひらがなが続く語ではないので、そのままです）',
+        ' (' + skipped + ' left as they are, because they are not a kanji plus a hiragana ending)') : ''), skipped ? 'warn' : '');
   }
 
   function findQuestion(id) { return state.questions.find((q) => q.id === id); }
@@ -577,7 +585,22 @@
 
   // ---- 問題一覧（編集） -----------------------------------------------------
 
-  function gradeText(q) { return q.grade ? '小' + q.grade : '—'; }
+  function gradeText(q) { return q.grade ? (uiLang() === 'en' ? 'Gr. ' + q.grade : '小' + q.grade) : '—'; }
+  function typeLabelsMap() {
+    const labels = { auto: I18n.typeLabel('auto') };
+    TYPES.forEach((t) => { labels[t] = I18n.typeLabel(t); });
+    return labels;
+  }
+  function styleLabelsMap() {
+    const labels = {};
+    STYLES.forEach((t) => { labels[t] = I18n.styleLabel(t); });
+    return labels;
+  }
+  function formatChoiceMap() {
+    const labels = {};
+    FORMAT_ORDER.forEach((id) => { labels[id] = I18n.formatChoice(id); });
+    return labels;
+  }
 
   function optionsHtml(values, labels, selected) {
     return values.map((v) => '<option value="' + esc(v) + '"' + (v === selected ? ' selected' : '') + '>' + esc(labels[v]) + '</option>').join('');
@@ -585,11 +608,11 @@
 
   function cardBodyHtml(q) {
     return '<dl class="qi-fields">' +
-      '<div><dt>学年</dt><dd>' + esc(gradeText(q)) + '</dd></div>' +
-      '<div><dt>漢字</dt><dd class="qi-kanji">' + esc(q.kanji || '—') + '</dd></div>' +
-      '<div><dt>よみがな</dt><dd>' + esc(q.reading || '—') + '</dd></div>' +
-      '<div><dt>答え</dt><dd>' + esc(q.answer || '—') + '</dd></div>' +
-      '<div class="wide"><dt>例文</dt><dd>' + esc(q.sentence || '—') + '</dd></div>' +
+      '<div><dt>' + phrase('学年', 'Grade') + '</dt><dd>' + esc(gradeText(q)) + '</dd></div>' +
+      '<div><dt>' + phrase('漢字', 'Kanji') + '</dt><dd class="qi-kanji">' + esc(q.kanji || '—') + '</dd></div>' +
+      '<div><dt>' + phrase('よみがな', 'Reading') + '</dt><dd>' + esc(q.reading || '—') + '</dd></div>' +
+      '<div><dt>' + phrase('答え', 'Answer') + '</dt><dd>' + esc(q.answer || '—') + '</dd></div>' +
+      '<div class="wide"><dt>' + phrase('例文', 'Sentence') + '</dt><dd>' + esc(q.sentence || '—') + '</dd></div>' +
       '</dl>';
   }
 
@@ -599,25 +622,25 @@
   }
 
   function editorHtml(q) {
-    const gradeOptions = ['<option value="">なし</option>'].concat([1, 2, 3, 4, 5, 6].map((g) =>
-      '<option value="' + g + '"' + (q.grade === g ? ' selected' : '') + '>小学' + g + '年</option>')).join('');
-    const hintCfg = CUSTOM_HINTS[q.type] || CUSTOM_HINTS.kaki;
+    const gradeOptions = ['<option value="">' + phrase('なし', 'None') + '</option>'].concat([1, 2, 3, 4, 5, 6].map((g) =>
+      '<option value="' + g + '"' + (q.grade === g ? ' selected' : '') + '>' + phrase('小学' + g + '年', 'Grade ' + g) + '</option>')).join('');
+    const hintCfg = I18n.customHint(q.type);
     return '<div class="qi-editor">' +
       '<div class="grid-two qi-types">' +
-        '<label><span class="field-label">問題の種類</span><select class="select-input" data-field="type">' + optionsHtml(TYPES, TYPE_LABELS, q.type) + '</select></label>' +
-        '<label><span class="field-label">答えを書く場所</span><select class="select-input" data-field="style">' + optionsHtml(STYLES, STYLE_LABELS, q.style) + '</select></label>' +
+        '<label><span class="field-label">' + phrase('問題の種類', 'Question type') + '</span><select class="select-input" data-field="type">' + optionsHtml(TYPES, typeLabelsMap(), q.type) + '</select></label>' +
+        '<label><span class="field-label">' + phrase('答えを書く場所', 'Where to write') + '</span><select class="select-input" data-field="style">' + optionsHtml(STYLES, styleLabelsMap(), q.style) + '</select></label>' +
       '</div>' +
       '<div class="grid-two">' +
         '<label><span class="field-label">' + esc(hintCfg.kanjiLabel) + '</span><input class="text-input" type="text" data-field="kanji" value="' + esc(q.kanji) + '" autocomplete="off" placeholder="' + esc(hintCfg.kanji) + '"></label>' +
         '<label><span class="field-label">' + esc(hintCfg.readingLabel) + '</span><input class="text-input" type="text" data-field="reading" value="' + esc(q.reading) + '" autocomplete="off" placeholder="' + esc(hintCfg.reading) + '"></label>' +
       '</div>' +
       '<p class="hint">' + esc(hintCfg.hint) + '</p>' +
-      '<label><span class="field-label">例文</span><textarea class="text-input" rows="2" data-field="sentence">' + esc(q.sentence) + '</textarea></label>' +
+        '<label><span class="field-label">' + phrase('例文', 'Sentence') + '</span><textarea class="text-input" rows="2" data-field="sentence">' + esc(q.sentence) + '</textarea></label>' +
       '<div class="grid-two">' +
-        '<label><span class="field-label">答え</span><input class="text-input" type="text" data-field="answer" value="' + esc(q.answer) + '" autocomplete="off"></label>' +
-        '<label><span class="field-label">学年</span><select class="select-input" data-field="grade">' + gradeOptions + '</select></label>' +
+        '<label><span class="field-label">' + phrase('答え', 'Answer') + '</span><input class="text-input" type="text" data-field="answer" value="' + esc(q.answer) + '" autocomplete="off"></label>' +
+        '<label><span class="field-label">' + phrase('学年', 'Grade') + '</span><select class="select-input" data-field="grade">' + gradeOptions + '</select></label>' +
       '</div>' +
-      '<button type="button" class="ghost-btn full-width" data-action="toggle" data-id="' + q.id + '">閉じる</button>' +
+      '<button type="button" class="ghost-btn full-width" data-action="toggle" data-id="' + q.id + '">' + phrase('閉じる', 'Close') + '</button>' +
     '</div>';
   }
 
@@ -626,16 +649,16 @@
     return '<article class="question-item' + (open ? ' is-open' : '') + '" data-id="' + q.id + '">' +
       '<div class="qi-head">' +
         '<span class="qi-no">' + (index + 1) + '</span>' +
-        '<span class="chip type-' + q.type + '">' + esc(TYPE_LABELS[q.type]) + '</span>' +
-        '<span class="chip src">作り方：' + esc(SOURCE_LABELS[q.source]) + '</span>' +
+        '<span class="chip type-' + q.type + '">' + esc(I18n.typeLabel(q.type)) + '</span>' +
+        '<span class="chip src">' + phrase('作り方：', '') + esc(phrase(SOURCE_LABELS[q.source], { bank: 'Grade', ocr: 'Photo', ai: 'AI', paste: 'Pasted', custom: 'Typed' }[q.source] || q.source)) + '</span>' +
       '</div>' +
       '<div class="qi-body" data-role="body">' + cardBodyHtml(q) + warnHtml(q) + '</div>' +
       '<div class="qi-actions">' +
         '<button type="button" class="inline-action" data-action="up" data-id="' + q.id + '" aria-label="上へ">↑</button>' +
         '<button type="button" class="inline-action" data-action="down" data-id="' + q.id + '" aria-label="下へ">↓</button>' +
-        '<button type="button" class="inline-action" data-action="copy" data-id="' + q.id + '">コピー</button>' +
-        '<button type="button" class="inline-action" data-action="toggle" data-id="' + q.id + '">' + (open ? '閉じる' : '編集') + '</button>' +
-        '<button type="button" class="inline-action danger" data-action="delete" data-id="' + q.id + '">削除</button>' +
+        '<button type="button" class="inline-action" data-action="copy" data-id="' + q.id + '">' + phrase('コピー', 'Copy') + '</button>' +
+        '<button type="button" class="inline-action" data-action="toggle" data-id="' + q.id + '">' + (open ? phrase('閉じる', 'Close') : phrase('編集', 'Edit')) + '</button>' +
+        '<button type="button" class="inline-action danger" data-action="delete" data-id="' + q.id + '">' + phrase('削除', 'Delete') + '</button>' +
       '</div>' +
       (open ? editorHtml(q) : '') +
     '</article>';
@@ -989,7 +1012,7 @@
     const sec = sectionTags()[index];
     return '<div class="q t-' + d.q.type + '">' +
       (sec ? '<div class="q-sec">' + esc(sec[0]) + '<br>' + esc(sec[1]) + '</div>' : '') +
-      '<div class="q-main"><span class="q-no">' + (index + 1) + '</span>' +
+      '<div class="q-main"><span class="q-no">' + (sheetOffset + index + 1) + '</span>' +
         '<span class="q-text">' + d.segs.map((s) => segHtml(s, answerMode)).join('') + '</span></div>' +
       answerColumnHtml(d, answerMode, lay) +
     '</div>';
@@ -1025,7 +1048,7 @@
   /** 問題ごとの札（なければ null）。[ '1行目', '2行目' ] */
   function sectionTags() {
     const qs = state.questions;
-    const key = state.showInstructions + '|' + qs.map((q) => q.type + (Number(q.grade) || 0)).join(',');
+    const key = state.showInstructions + '|' + uiLang() + '|' + sheetOffset + '|' + qs.map((q) => q.type + (Number(q.grade) || 0)).join(',');
     if (secCache.key === key) return secCache.tags;
     const tags = qs.map(() => null);
     if (state.showInstructions) {
@@ -1040,7 +1063,11 @@
       const interleaved = new Set(runs.map((r) => r.type)).size < runs.length;
       if (runs.length >= 2 && !interleaved) {
         const kana = qs.length > 0 && qs.every((q) => Number(q.grade) >= 1 && Number(q.grade) <= 2);
-        runs.slice(1).forEach((r) => { tags[r.start] = ['ここから', SECTION_LABELS[kana ? 'kana' : 'kanji'][r.type]]; });
+        runs.slice(1).forEach((r) => {
+          tags[r.start] = uiLang() === 'en'
+            ? ['Next', { kaki: 'Write', yomi: 'Read', sentence: 'Box', okuri: 'Ending', mas: 'Practice', trace: 'Trace' }[r.type]]
+            : ['ここから', SECTION_LABELS[kana ? 'kana' : 'kanji'][r.type]];
+        });
       }
     }
     secCache = { key, tags };
@@ -1061,22 +1088,41 @@
     });
     const items = [];
     const hintText = (r) => {
-      let text = texts[r.type];
-      if (r.type === 'sentence' && state.readingHint && r.hint) text += kana ? '（□の みぎの ちいさい じは よみがなです）' : '（□の右の小さい字は 読みがなです）';
-      if (r.type === 'okuri' && state.okuriReadingHint) text += kana ? '（かん字の みぎの ちいさい じは よみがなです）' : '（右の小さい字は 読みがなです）';
+      const en = {
+        kaki: 'Write the kanji for the underlined hiragana.',
+        yomi: 'Write the reading of the underlined kanji in hiragana.',
+        sentence: 'Write the kanji that belongs in the box.',
+        okuri: 'Write the hiragana that follows the kanji.',
+        mas: 'Look at the model and write the same kanji in the boxes.',
+        trace: 'Trace the light gray character, then write it in the empty boxes.'
+      };
+      let text = uiLang() === 'en' ? en[r.type] : texts[r.type];
+      if (r.type === 'sentence' && state.readingHint && r.hint) {
+        text += uiLang() === 'en' ? ' (The small letters by the box are the reading.)' : (kana ? '（□の みぎの ちいさい じは よみがなです）' : '（□の右の小さい字は 読みがなです）');
+      }
+      if (r.type === 'okuri' && state.okuriReadingHint) {
+        text += uiLang() === 'en' ? ' (The small letters are the reading.)' : (kana ? '（かん字の みぎの ちいさい じは よみがなです）' : '（右の小さい字は 読みがなです）');
+      }
       return text;
     };
+    const qSpan = (start, end) => {
+      const a = sheetOffset + start + 1;
+      const b = sheetOffset + end + 1;
+      if (a === b) return String(a);
+      return a + (uiLang() === 'en' ? '–' : '〜') + b;
+    };
+    const qHead = (spans) => (uiLang() === 'en' ? 'Q' : '問') + spans.join(uiLang() === 'en' ? ', ' : '・');
     // 同じ種類が離れた場所にも出るとき（交錯）は、種類ごとに「問1・3・5〜6」と番号をまとめて1行にする
     if (new Set(runs.map((r) => r.type)).size < runs.length) {
       const byType = new Map();
       runs.forEach((r) => {
         const g = byType.get(r.type) || { type: r.type, hint: false, spans: [] };
         g.hint = g.hint || r.hint;
-        g.spans.push(r.start === r.end ? String(r.start + 1) : (r.start + 1) + '〜' + (r.end + 1));
+        g.spans.push(qSpan(r.start, r.end));
         byType.set(r.type, g);
       });
       byType.forEach((g) => {
-        const label = '問' + g.spans.join('・');
+        const label = qHead(g.spans);
         const text = hintText(g);
         // 番号が長くて1行に収まらないときは、番号の行と説明の行を分ける（途中で折り返して読みにくくならないように）
         items.push({ label, text, stack: chars(label + text).length > 40 });
@@ -1092,7 +1138,7 @@
         seen.add(r.type);
       }
       const text = hintText(r);
-      const label = compact ? '' : (r.start === r.end ? '問' + (r.start + 1) : '問' + (r.start + 1) + '〜' + (r.end + 1));
+      const label = compact ? '' : qHead([qSpan(r.start, r.end)]);
       items.push({ label, text });
     });
     return items;
@@ -1264,10 +1310,13 @@
    * ここまでで決まるのは「問題文の字級」。そのあと、文の字級・段の並びはそのままで、
    * 解答マスの字級だけを実測しながら大きくする（4段階目）。余白がなければ何も変わらない。
    */
+  /** いま描いているページの、全体の中での開始位置（問21〜 のように番号をずらす） */
+  let sheetOffset = 0;
+
   /** 文字サイズの計算結果を使い回してよいかを見分ける鍵（用紙の種類も含む） */
   function fontKey() {
     return JSON.stringify([state.questions, state.format, state.tiers, state.font, state.readingHint, state.okuriReadingHint,
-      state.showInstructions, state.showClass, state.showDate, state.okuriCells, state.practiceReps]);
+      state.showInstructions, state.showClass, state.showDate, state.okuriCells, state.practiceReps, uiLang(), sheetOffset]);
   }
 
   function fittedFont() {
@@ -1327,6 +1376,10 @@
       }
     }
     if (!cell) { f = margin(f); cell = f; } // 問題がないとき（実測していない）
+    // 0.25mm 単位に切り下げて、ブラウザごとの端数でマスの大きさが揺れにくくする
+    const snap = (v) => Math.floor((v + 1e-9) * 4) / 4;
+    f = Math.max(f < MIN_FONT - 1e-9 ? HARD_MIN_FONT : MIN_FONT, snap(f));
+    cell = Math.max(f, snap(cell));
     fontCache.key = key;
     fontCache.f = f;
     fontCache.tiers = tiers;
@@ -1342,7 +1395,7 @@
     return (fittedCell || f) * 1.25;
   }
 
-  function buildSheet(mode, fontMm, forceTiers, cellMm) {
+  function buildSheet(mode, fontMm, forceTiers, cellMm, meta) {
     const answerMode = mode === 'answer';
     const descs = state.questions.map(describe);
     const items = state.showInstructions ? instructionItems(state.questions) : [];
@@ -1360,9 +1413,11 @@
 
     let body;
     if (!n) {
-      body = '<div class="paper-empty">まだ問題がありません。<br>上の「学年から」「自分で」「写真・AI」のどれかで問題を作ると、ここに用紙が出ます。' +
-        '<br><button type="button" class="soft-btn sample-btn">見本の用紙を見る</button>' +
-        '<button type="button" class="soft-btn stroke-sample-btn">筆順練習プリントの見本を見る</button></div>';
+      body = '<div class="paper-empty">' + phrase(
+        'まだ問題がありません。<br>上の「学年から」「自分で」「写真・AI」のどれかで問題を作ると、ここに用紙が出ます。',
+        'No questions yet.<br>Use By grade, Your own, or Photo / AI, and the sheet will show up here.') +
+        '<br><button type="button" class="soft-btn sample-btn">' + phrase('見本の用紙を見る', 'See a sample sheet') + '</button>' +
+        '<button type="button" class="soft-btn stroke-sample-btn">' + phrase('筆順練習プリントの見本を見る', 'See a stroke-order sample') + '</button></div>';
     } else {
       const rows = [];
       for (let t = 0; t < lay.tiers; t += 1) {
@@ -1374,25 +1429,32 @@
       body = rows.join('');
     }
 
-    const points = Number(state.pointsEach) > 0 ? Number(state.pointsEach) * n : 0;
-    const fields = answerMode ? '' : ((state.showClass ? '<span class="field">学年・組<i class="fill short"></i></span>' : '') +
-      (state.showDate ? '<span class="field">日付<i class="fill short"></i></span>' : '') +
-      (state.showName ? '<span class="field">名前<i class="fill"></i></span>' : '') +
-      (state.showScore ? '<span class="field">点<i class="fill short"></i>' + (points ? '<span class="of-total">／' + points + '点</span>' : '') + '</span>' : ''));
+    const pageMeta = meta || { offset: sheetOffset, page: 1, pages: 1, total: n };
+    const points = Number(state.pointsEach) > 0 ? Number(state.pointsEach) * (pageMeta.total || n) : 0;
+    const fields = answerMode ? '' : ((state.showClass ? '<span class="field">' + phrase('学年・組', 'Grade') + '<i class="fill short"></i></span>' : '') +
+      (state.showDate ? '<span class="field">' + phrase('日付', 'Date') + '<i class="fill short"></i></span>' : '') +
+      (state.showName ? '<span class="field">' + phrase('名前', 'Name') + '<i class="fill"></i></span>' : '') +
+      (state.showScore ? '<span class="field">' + phrase('点', 'Score') + '<i class="fill short"></i>' + (points ? '<span class="of-total">' + phrase('／' + points + '点', ' / ' + points + ' pts') + '</span>' : '') + '</span>' : ''));
     const sub = str(state.subtitle).trim();
+    const titleRaw = str(state.title).trim();
+    const title = (!titleRaw || titleRaw === '漢字テスト') ? phrase('漢字テスト', 'Kanji Test') : titleRaw;
+    const countLabel = pageMeta.pages > 1
+      ? phrase(n + '問（全' + pageMeta.total + '問）', n + ' of ' + pageMeta.total)
+      : phrase(n + '問', n + (n === 1 ? ' question' : ' questions'));
 
     return '<div class="paper ' + (answerMode ? 'is-answer' : 'is-question') + '" style="' +
       paperBoxStyle(lay.fmt) + '--f:' + lay.cellF.toFixed(2) + 'mm;--tf:' + lay.f.toFixed(2) + 'mm;--cols:' + lay.cols + ';--head:' + headHeight() + 'mm;' +
       'font-family:' + FONT_STACKS[state.font] + '">' +
       '<div class="paper-head">' +
-        '<div class="paper-title">' + esc(state.title || '漢字テスト') + (answerMode ? '<span class="stamp">解答</span>' : '') + '</div>' +
+        '<div class="paper-title">' + esc(title) + (answerMode ? '<span class="stamp">' + phrase('解答', 'Answers') + '</span>' : '') + '</div>' +
         (sub ? '<div class="paper-sub">' + esc(sub) + '</div>' : '') +
-        '<div class="paper-count">' + n + '問</div>' +
+        (pageMeta.pages > 1 ? '<div class="s-page">' + pageMeta.page + ' / ' + pageMeta.pages + '</div>' : '') +
+        '<div class="paper-count">' + countLabel + '</div>' +
         '<div class="paper-fields">' + fields + '</div>' +
       '</div>' +
       instructionHtml(items) +
       '<div class="paper-body">' + body + '</div>' +
-      '<div class="paper-brand">漢字テストメーカー</div>' +
+      '<div class="paper-brand">' + phrase('漢字テストメーカー', 'Kanji Test Maker') + '</div>' +
     '</div>';
   }
 
@@ -1531,6 +1593,101 @@
   }
 
   /**
+   * 解答マスが READABLE_CELL を下回るほど詰まったら、ページを分ける。
+   * 10問・15問のように今の1枚に収まる大きさなら、分けない。
+   */
+  const READABLE_CELL = 6.5;
+  let pagePlanCache = { key: '', groups: null };
+  let shownFit = { f: 0, cellMm: 0, pages: 1 };
+
+  function cellMmForSlice(start, count) {
+    const backQuestions = state.questions;
+    const backOff = sheetOffset;
+    const backSec = secCache.key;
+    const back = { key: fontCache.key, f: fontCache.f, tiers: fontCache.tiers, cell: fontCache.cell, fitted: fittedTiers, fcell: fittedCell };
+    try {
+      state.questions = backQuestions.slice(start, start + count);
+      sheetOffset = start;
+      secCache.key = '';
+      const key = fontKey();
+      if (countCellCache.has(key)) return countCellCache.get(key);
+      fontCache.key = '';
+      const mm = fittedCellMm();
+      if (countCellCache.size > 80) countCellCache.clear();
+      countCellCache.set(key, mm);
+      return mm;
+    } catch (error) {
+      return 0;
+    } finally {
+      state.questions = backQuestions;
+      sheetOffset = backOff;
+      secCache.key = backSec;
+      fontCache.key = back.key;
+      fontCache.f = back.f;
+      fontCache.tiers = back.tiers;
+      fontCache.cell = back.cell;
+      fittedTiers = back.fitted;
+      fittedCell = back.fcell;
+    }
+  }
+
+  function pagePlan() {
+    const all = state.questions;
+    if (all.length <= 1) return [all.slice()];
+    const key = fontKey();
+    if (pagePlanCache.key === key && pagePlanCache.groups) return pagePlanCache.groups;
+    if (cellMmForSlice(0, all.length) >= READABLE_CELL) {
+      pagePlanCache = { key, groups: [all.slice()] };
+      return pagePlanCache.groups;
+    }
+    // いちばん少ない枚数で、各ページの問数がそろい、マスが読める大きさを下回らないようにする
+    let per = 1;
+    for (let pages = 2; pages <= Math.min(12, all.length); pages += 1) {
+      const size = Math.ceil(all.length / pages);
+      const tail = all.length - size * (pages - 1);
+      const headOk = cellMmForSlice(0, size) >= READABLE_CELL;
+      const tailOk = tail <= 0 || tail === size || cellMmForSlice(all.length - tail, tail) >= READABLE_CELL;
+      if (headOk && tailOk) { per = size; break; }
+      per = size;
+    }
+    const groups = [];
+    for (let i = 0; i < all.length; i += per) groups.push(all.slice(i, i + per));
+    pagePlanCache = { key, groups };
+    return groups;
+  }
+
+  function renderSlice(qs, mode, meta) {
+    const backQuestions = state.questions;
+    const backOff = sheetOffset;
+    const backSec = secCache.key;
+    const back = { key: fontCache.key, f: fontCache.f, tiers: fontCache.tiers, cell: fontCache.cell, fitted: fittedTiers, fcell: fittedCell };
+    state.questions = qs;
+    sheetOffset = meta.offset;
+    secCache.key = '';
+    fontCache.key = '';
+    try {
+      const f = fittedFont();
+      const html = buildSheet(mode, f, fittedTiers, fittedCell, meta);
+      if (meta.page === 1) shownFit = { f: f, cellMm: (fittedCell || f) * 1.25, pages: meta.pages };
+      return html;
+    } finally {
+      state.questions = backQuestions;
+      sheetOffset = backOff;
+      secCache.key = backSec;
+      fontCache.key = back.key;
+      fontCache.f = back.f;
+      fontCache.tiers = back.tiers;
+      fontCache.cell = back.cell;
+      fittedTiers = back.fitted;
+      fittedCell = back.fcell;
+    }
+  }
+
+  function displayedCellMm() {
+    return shownFit.cellMm || fittedCellMm();
+  }
+
+  /**
    * マスが小さすぎるときの注意文（プレビューの下と、印刷前の確認の両方で使う）。
    * 十分な大きさのときは '' を返す。
    * 用紙の案内は、決まった順番をすすめるのではなく、ほかの用紙を実際に測ってから
@@ -1539,39 +1696,44 @@
   function smallCellText() {
     if (!state.questions.length) return '';
     const writes = state.questions.some((q) => ['kaki', 'yomi', 'mas', 'trace'].includes(q.type));
-    const now = fittedCellMm(); // 問題文の字級ではなく、実測した解答マスの大きさで判断する
+    const now = displayedCellMm(); // 分けたあとの、画面に出ているページのマス
     if (!writes || now >= GOOD_CELL) return '';
     const descs = state.questions.map(describe);
     const rec = recommendCount(descs);
-    const a3note = 'A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります（コンビニなどの印刷が必要です）。';
-    const head = '小学生が鉛筆で書くには小さめです。' +
-      (rec && rec < descs.length ? 'いまの用紙なら、約' + rec + '問までにすると書きやすい大きさになります。' : '');
+    const a3note = phrase(
+      'A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります（コンビニなどの印刷が必要です）。',
+      ' A3 is a large sheet. Many home printers cannot print it.');
+    const head = phrase(
+      '小学生が鉛筆で書くには小さめです。' + (rec && rec < descs.length ? 'いまの用紙なら、約' + rec + '問までにすると書きやすい大きさになります。' : ''),
+      'Small for writing with a pencil. ' + (rec && rec < descs.length ? 'On this paper, about ' + rec + ' questions keeps the boxes comfortable. ' : ''));
 
     const others = Object.keys(FORMATS).filter((k) => k !== state.format)
-      .map((k) => ({ key: k, label: FORMAT_LABELS[k] || k, mm: cellMmForFormat(k) }))
+      .map((k) => ({ key: k, label: I18n.formatShort(k), mm: cellMmForFormat(k) }))
       .filter((o) => o.mm > 0);
-    if (!others.length) return head + '問題の数を減らすと大きくなります。';
+    if (!others.length) return head + phrase('問題の数を減らすと大きくなります。', 'Fewer questions makes them bigger.');
 
     const bigger = (o) => o.mm >= now + 0.3;
-    const size = (o) => o.label + 'で約' + o.mm.toFixed(1) + 'mm';
-    const sizeWithNote = (o) => size(o) + (bigger(o) || o.mm >= GOOD_CELL ? '' : o.mm <= now - 0.3 ? '（いまより小さくなります）' : '（ほとんど変わりません）');
+    const size = (o) => phrase(o.label + 'で約' + o.mm.toFixed(1) + 'mm', o.label + ' about ' + o.mm.toFixed(1) + ' mm');
+    const sizeWithNote = (o) => size(o) + (bigger(o) || o.mm >= GOOD_CELL ? '' : o.mm <= now - 0.3 ? phrase('（いまより小さくなります）', ' (smaller than now)') : phrase('（ほとんど変わりません）', ' (about the same)'));
     // A3は家庭のプリンターで印刷できないことがあるので、同じくらい大きくなるならA4を先にすすめる
     const burden = (o) => (o.key === 'A3-landscape' ? 1 : 0);
     const a3 = others.find((o) => o.key === 'A3-landscape');
     const note = a3 && bigger(a3) ? a3note : '';
 
     const good = others.filter((o) => o.mm >= GOOD_CELL).sort((a, b) => burden(a) - burden(b) || b.mm - a.mm);
+    const join = (list) => list.join(uiLang() === 'en' ? '; ' : '、');
     if (good.length) {
-      return head + '用紙を変えると、' + others.map(sizeWithNote).join('、') + 'になります。'
-        + (good.length > 1 ? 'まずは' + good[0].label + 'にしてみてください。書きやすい大きさになります。'
-          : good[0].label + 'にすると、書きやすい大きさになります。') + note;
+      return head + phrase('用紙を変えると、', 'Other papers: ') + join(others.map(sizeWithNote)) + phrase('になります。', '. ')
+        + (good.length > 1 ? phrase('まずは' + good[0].label + 'にしてみてください。書きやすい大きさになります。', 'Try ' + good[0].label + ' first. The boxes become comfortable.')
+          : phrase(good[0].label + 'にすると、書きやすい大きさになります。', good[0].label + ' makes them comfortable.')) + note;
     }
     if (others.some(bigger)) {
-      return head + '用紙を変えると、' + others.map(sizeWithNote).join('、')
-        + 'になりますが、どれも書きやすい大きさ（約' + GOOD_CELL.toFixed(1) + 'mm）には届きません。問題の数を減らすことをおすすめします。' + note;
+      return head + phrase('用紙を変えると、', 'Other papers: ') + join(others.map(sizeWithNote))
+        + phrase('になりますが、どれも書きやすい大きさ（約' + GOOD_CELL.toFixed(1) + 'mm）には届きません。問題の数を減らすことをおすすめします。',
+          '. None of them reach a comfortable size (about ' + GOOD_CELL.toFixed(1) + ' mm). Fewer questions is the better fix.') + note;
     }
-    return head + '用紙を変えても、あまり大きくなりません（' + others.map(size).join('、')
-      + '）。問題の数を減らすことをおすすめします。';
+    return head + phrase('用紙を変えても、あまり大きくなりません（', 'Changing the paper does not help much (') + join(others.map(size))
+      + phrase('）。問題の数を減らすことをおすすめします。', '). Fewer questions is the better fix.');
   }
 
   /** プレビューの下に出す「解答マスの大きさ」の目安と、直したほうがよい点 */
@@ -1579,9 +1741,14 @@
     if (!state.questions.length) return { text: '', warn: false };
     const descs = state.questions.map(describe);
     const lay = computeLayout(descs, insHeightFor(state.questions), fittedTiers);
-    const cell = fittedCellMm(); // 解答マスは問題文より大きいことがあるので、実測した値を出す
+    const cell = displayedCellMm(); // ページを分けたあとの、見えている用紙のマス
     const pt = f / 0.3528;
-    let text = '解答マス 約' + cell.toFixed(1) + 'mm／文字 約' + Math.round(pt) + 'pt';
+    let text = phrase('解答マス 約' + cell.toFixed(1) + 'mm／文字 約' + Math.round(pt) + 'pt',
+      'Answer box about ' + cell.toFixed(1) + ' mm / text about ' + Math.round(pt) + ' pt');
+    if (shownFit.pages > 1) {
+      text += phrase('　読みやすい大きさにするため、' + shownFit.pages + 'ページに分けました。',
+        ' Split into ' + shownFit.pages + ' pages so the boxes stay readable.');
+    }
     let warn = false;
     const small = smallCellText();
     if (small) {
@@ -1665,9 +1832,18 @@
       updatePageStyle();
       return;
     }
+    const groups = pagePlan();
+    const total = state.questions.length;
     const modes = state.printBoth ? ['question', 'answer'] : [state.sheetMode];
-    const f = fittedFont();
-    el.printArea.innerHTML = modes.map((m) => wrapPrintSheet(buildSheet(m, f, fittedTiers, fittedCell))).join('');
+    const parts = [];
+    modes.forEach((mode) => {
+      let offset = 0;
+      groups.forEach((qs, i) => {
+        parts.push(wrapPrintSheet(renderSlice(qs, mode, { offset: offset, page: i + 1, pages: groups.length, total: total })));
+        offset += qs.length;
+      });
+    });
+    el.printArea.innerHTML = parts.join('');
     updatePageStyle();
   }
 
@@ -1682,7 +1858,7 @@
       const first = c && (c.dupes[0] ? c.dupes[0].b : c.leaks[0] ? c.leaks[0].b : 0);
       const target = first ? state.questions[first - 1] : null;
       el.listNotice.innerHTML = info.conflicts
-        ? '<span>⚠ ' + esc(info.conflicts) + '</span>' + (target ? '<button type="button" class="notice-fix" data-remove-id="' + esc(target.id) + '">問' + first + 'を消す</button>' : '')
+        ? '<span>⚠ ' + esc(info.conflicts) + '</span>' + (target ? '<button type="button" class="notice-fix" data-remove-id="' + esc(target.id) + '">' + phrase('問' + first + 'を消す', 'Remove Q' + first) + '</button>' : '')
         : '';
       el.listNotice.hidden = !info.conflicts;
     }
@@ -1691,19 +1867,25 @@
   /** 「印刷 / PDF」ボタンに、いま印刷される用紙の種類を小さく添える */
   function updatePrintLabels() {
     const label = state.sheetMode === 'stroke'
-      ? '筆順練習' + (strokeInfo.pages > 1 ? '（' + strokeInfo.pages + 'ページ）' : '')
-      : state.printBoth ? '問題用紙＋解答用紙' : (state.sheetMode === 'answer' ? '解答用紙' : '問題用紙');
+      ? phrase('筆順練習', 'Stroke order') + (strokeInfo.pages > 1 ? phrase('（' + strokeInfo.pages + 'ページ）', ' (' + strokeInfo.pages + ' pages)') : '')
+      : state.printBoth ? phrase('問題用紙＋解答用紙', 'Questions + answers') : (state.sheetMode === 'answer' ? phrase('解答用紙', 'Answers') : phrase('問題用紙', 'Questions'));
     document.querySelectorAll('.print-sub').forEach((e) => { e.textContent = label; });
   }
 
   function renderPaper() {
     if (state.sheetMode === 'stroke') { renderStrokePaper(); return; }
     delete el.paperHost.dataset.strokeReady;
-    const f = fittedFont();
-    el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' + buildSheet(state.sheetMode, f, fittedTiers, fittedCell) + '</div></div>';
+    const groups = pagePlan();
+    const total = state.questions.length;
+    let offset = 0;
+    el.paperHost.innerHTML = groups.map((qs, i) => {
+      const sheet = renderSlice(qs, state.sheetMode, { offset: offset, page: i + 1, pages: groups.length, total: total });
+      offset += qs.length;
+      return '<div class="sheet-scaler"><div class="paper-wrap">' + sheet + '</div></div>';
+    }).join('');
     applyZoom();
     renderPrintArea();
-    updateSheetInfo(f);
+    updateSheetInfo(shownFit.f);
     updatePrintLabels();
   }
 
@@ -1802,7 +1984,7 @@
       toast('印刷する漢字がありません。先に「筆順練習プリントを作る」で漢字を入れてください。', 'warn');
       return;
     }
-    if (state.sheetMode !== 'stroke' && !state.questions.length) { toast('印刷する問題がありません。先に問題を作ってください。', 'warn'); return; }
+    if (state.sheetMode !== 'stroke' && !state.questions.length) { toast(phrase('印刷する問題がありません。先に問題を作ってください。', 'There is nothing to print yet. Make some questions first.'), 'warn'); return; }
     const warnings = printWarnings();
     if (!warnings.length) { printNow(); return; } // 注意がないときは、じゃまをせずそのまま印刷
     openPrintConfirm(warnings);
@@ -1833,9 +2015,25 @@
   const STROKE_SAMPLE = '水 木 日 上 花 祭 曜 鏡';
   /* 筆順練習を選んだ直後の、まだ何も入れていないときの画面。
      「まだ問題がありません」（テスト用紙の文言）が出たままだと、壊れたと思われる */
-  const STROKE_EMPTY = '練習したい漢字を入れると、ここにプリントが出ます。' +
-    '<br>「筆順練習プリントを作る」の欄に打つか、学年の一覧から字を押してください。' +
-    '<br><button type="button" class="soft-btn stroke-sample-btn">見本の用紙を見る</button>';
+  function strokeEmptyHtml() {
+    return phrase(
+      '練習したい漢字を入れると、ここにプリントが出ます。<br>「筆順練習プリントを作る」の欄に打つか、学年の一覧から字を押してください。',
+      'Type the kanji you want to practice, and the sheet will show up here.<br>Use “Make a stroke-order sheet”, or tap characters in the grade list.') +
+      '<br><button type="button" class="soft-btn stroke-sample-btn">' + phrase('見本の用紙を見る', 'See a sample sheet') + '</button>';
+  }
+  function strokeTitleText() {
+    const custom = str(state.strokeTitle).trim();
+    if (!custom || custom === 'かん字の ひつじゅん れんしゅう') {
+      return phrase('かん字の ひつじゅん れんしゅう', 'Kanji stroke order practice');
+    }
+    return custom;
+  }
+  function strokeCreditText() {
+    return phrase(STROKE_CREDIT, 'Stroke order: KanjiVG (Ulrich Apel) CC BY-SA 3.0 / Readings: KANJIDIC2 (EDRDG) CC BY-SA 4.0 / Jōyō readings');
+  }
+  function strokeNoteText() {
+    return phrase(STROKE_NOTE, 'Stroke order can differ by textbook. Source and what was checked: “About the stroke-order data” on the editing screen.');
+  }
 
   /** "003054012048" → [[3,54],[12,48]]（3桁固定長。2桁だと100以上の座標が切れる） */
   function strokePos(k) {
@@ -1999,16 +2197,16 @@
     const kunText = y.kun.length
       ? y.kun.map((r) => wrap(kunHtml(r))).join('・') + (y.more ? '<span class="s-more"> …</span>' : '')
       : '—';
-    const label = trace && blank ? 'なぞり書き → 書き取り' : trace ? 'なぞり書き' : '書き取り';
+    const label = trace && blank ? phrase('なぞり書き → 書き取り', 'Trace, then write') : trace ? phrase('なぞり書き', 'Trace') : phrase('書き取り', 'Write');
     return '<div class="sentry">' +
       '<div class="s-glyph">' + GRID_I + glyphSvg(paths, '#222', 3.1) + numberSvg(pos, numSize) + '</div>' +
       '<div class="s-meta">' +
         '<div class="s-head"><span class="s-ch">' + esc(k) + '</span>' +
-          (entry ? '<span class="s-tag">' + entry.grade + '年</span>' : '') +
-          '<span class="s-tag">' + pos.length + '画</span></div>' +
+          (entry ? '<span class="s-tag">' + phrase(entry.grade + '年', 'Gr. ' + entry.grade) + '</span>' : '') +
+          '<span class="s-tag">' + phrase(pos.length + '画', pos.length + ' strokes') + '</span></div>' +
         '<div class="s-yomi">' +
-          '<div><span class="s-k">音</span><span class="s-v">' + onText + '</span></div>' +
-          '<div><span class="s-k">訓</span><span class="s-v">' + kunText + '</span></div>' +
+          '<div><span class="s-k">' + phrase('音', 'On') + '</span><span class="s-v">' + onText + '</span></div>' +
+          '<div><span class="s-k">' + phrase('訓', 'Kun') + '</span><span class="s-v">' + kunText + '</span></div>' +
         '</div>' +
       '</div>' +
       '<div class="s-prac"><p>' + label + '</p><div class="s-cells">' +
@@ -2031,14 +2229,15 @@
       '--sg:' + g.sg + 'mm;--smeta:' + g.smeta + 'mm;--sc:' + g.sc.toFixed(2) + 'mm;--sgap:' + g.gapc + 'mm;' +
       'font-family:' + FONT_STACKS[state.font] + '">' +
       '<div class="paper-head">' +
-        '<div class="paper-title">' + esc(state.strokeTitle || 'かん字の ひつじゅん れんしゅう') + '</div>' +
+        '<div class="paper-title">' + esc(strokeTitleText()) + '</div>' +
         (pages > 1 ? '<div class="s-page">' + pageNo + ' / ' + pages + '</div>' : '') +
-        '<div class="paper-fields"><span class="field">名前<i class="fill"></i></span></div>' +
+        '<div class="paper-fields"><span class="field">' + phrase('名前', 'Name') + '<i class="fill"></i></span></div>' +
       '</div>' +
-      '<p class="s-lead">赤い数字は、書くじゅんばんです。うすい字をなぞってから、あいているマスに書きましょう。</p>' +
+      '<p class="s-lead">' + phrase('赤い数字は、書くじゅんばんです。うすい字をなぞってから、あいているマスに書きましょう。',
+        'The red numbers are the stroke order. Trace the light gray character, then write it in the empty boxes.') + '</p>' +
       '<div class="paper-body">' + body + '</div>' +
-      '<div class="s-credit">' + esc(STROKE_CREDIT) + '<br>' + esc(STROKE_NOTE) + '</div>' +
-      '<div class="paper-brand">漢字テストメーカー</div>' +
+      '<div class="s-credit">' + esc(strokeCreditText()) + '<br>' + esc(strokeNoteText()) + '</div>' +
+      '<div class="paper-brand">' + phrase('漢字テストメーカー', 'Kanji Test Maker') + '</div>' +
     '</div>';
   }
 
@@ -2173,7 +2372,7 @@
   function paintStroke(list, ng, cut) {
     const fit = fitStroke(list);
     const pages = fit.pages;
-    const empty = list.length ? '' : STROKE_EMPTY;
+    const empty = list.length ? '' : strokeEmptyHtml();
     const sheets = pages.map((p, i) => strokeSheetHtml(p, i + 1, pages.length, i === 0 ? empty : '', fit.geom));
     el.paperHost.innerHTML = sheets.map((s) => '<div class="sheet-scaler"><div class="paper-wrap">' + s + '</div></div>').join('');
     strokePrintHtml = sheets.map((s) => wrapPrintSheet(s)).join('');
@@ -2194,7 +2393,7 @@
     el.paperHost.dataset.strokeReady = '0';
     if (!list.length || strokePathsReady(list)) { paintStroke(list, parsed.ng, cut); return; }
     el.paperHost.innerHTML = '<div class="sheet-scaler"><div class="paper-wrap">' +
-      strokeSheetHtml([], 1, 1, '字のかたちを よみこんでいます…') + '</div></div>';
+      strokeSheetHtml([], 1, 1, phrase('字のかたちを よみこんでいます…', 'Loading the character shapes…')) + '</div></div>';
     applyZoom();
     ensureStrokePaths(list).then(() => {
       if (token !== strokeToken || state.sheetMode !== 'stroke') return;
@@ -2556,7 +2755,7 @@
 
   function applyCustomHint() {
     if (!el.customType || !el.customHint) return;
-    const cfg = CUSTOM_HINTS[el.customType.value] || CUSTOM_HINTS.kaki;
+    const cfg = I18n.customHint(el.customType.value);
     el.customKanji.placeholder = cfg.kanji;
     el.customReading.placeholder = cfg.reading;
     if (el.customKanjiLabel) el.customKanjiLabel.textContent = cfg.kanjiLabel;
@@ -2647,15 +2846,14 @@
   }
 
   function typeCardInner(value, label, short, style) {
-    const info = TYPE_INFO[value] || { desc: '' };
     return '<span class="tv" aria-hidden="true">' + typeThumb(value, style) + '</span>' +
       '<span class="tc-text"><span class="tc-name">' + esc(label).replace('（', '<wbr>（') + '</span>' +
-      '<span class="tc-desc">' + esc(short && info.short ? info.short : info.desc) + '</span></span>';
+      '<span class="tc-desc">' + esc(I18n.typeDesc(value, !!short)) + '</span></span>';
   }
 
   function renderTypePills() {
     el.typePills.innerHTML = TYPES.map((t) =>
-      '<button type="button" class="pill-btn type-card" data-type="' + t + '" aria-pressed="false" title="' + esc(TYPE_INFO[t].desc) + '">' + typeCardInner(t, TYPE_LABELS[t], true) + '</button>').join('');
+      '<button type="button" class="pill-btn type-card" data-type="' + t + '" aria-pressed="false" title="' + esc(I18n.typeDesc(t, false)) + '">' + typeCardInner(t, I18n.typeLabel(t), true) + '</button>').join('');
   }
 
   /**
@@ -2697,7 +2895,7 @@
       });
       if (box) {
         const now = options.find((o) => o.value === select.value) || options[0];
-        box.querySelector('summary').innerHTML = typeCardInner(now.value, now.label, false, styleOf()) + '<span class="tc-change">変える</span>';
+        box.querySelector('summary').innerHTML = typeCardInner(now.value, now.label, false, styleOf()) + '<span class="tc-change">' + phrase('変える', 'Change') + '</span>';
       }
     };
     list.addEventListener('click', (event) => {
@@ -2916,7 +3114,9 @@
     } catch (error) {
       return;
     }
-    option.textContent = installed ? '教科書体' : '教科書体（この端末では明朝体）';
+    option.textContent = installed
+      ? phrase('教科書体', 'Textbook')
+      : phrase('教科書体（この端末では明朝体）', 'Textbook (this device shows Mincho)');
   }
 
   // ---- イベント -------------------------------------------------------------
@@ -2946,6 +3146,13 @@
       syncTiles();
       if (!fromBoot) syncSheetModeToTool(state.openTool);
       save();
+    }));
+
+    document.querySelectorAll('[data-set-lang]').forEach((btn) => btn.addEventListener('click', () => {
+      const next = btn.getAttribute('data-set-lang');
+      if (next === uiLang()) return;
+      I18n.setLang(next);
+      onLanguageChanged();
     }));
 
     // 印刷
@@ -3121,7 +3328,7 @@
     // 用紙設定
     el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; syncFormatSelects(); renderPaper(); save(); });
     if (el.gradeFormatSelect) {
-      fillSelect(el.gradeFormatSelect, FORMAT_ORDER, FORMAT_CHOICE_LABELS);
+      fillSelect(el.gradeFormatSelect, FORMAT_ORDER, formatChoiceMap());
       el.gradeFormatSelect.value = state.format; // fillSelect でいったん空になるため、ここで現在の用紙を入れ直す
       el.gradeFormatSelect.addEventListener('change', () => { state.format = el.gradeFormatSelect.value; syncFormatSelects(); renderPaper(); save(); });
     }
@@ -3160,21 +3367,63 @@
     el.viewport = el.sheetViewport;
   }
 
+  function onLanguageChanged() {
+    I18n.apply(document);
+    const keep = {
+      type: el.customType.value,
+      style: el.customStyle.value,
+      ocr: el.ocrType.value,
+      ai: el.aiType.value,
+      bulk: el.bulkType.value
+    };
+    fillSelect(el.customType, TYPES, typeLabelsMap());
+    el.customType.value = keep.type;
+    fillSelect(el.customStyle, STYLES, styleLabelsMap());
+    el.customStyle.value = keep.style;
+    const importTypes = { auto: I18n.typeLabel('auto') };
+    TYPES.forEach((t) => { importTypes[t] = I18n.typeLabel(t); });
+    ['ocrType', 'aiType', 'bulkType'].forEach((id) => {
+      fillSelect(el[id], Object.keys(importTypes), importTypes);
+      el[id].value = keep[id === 'ocrType' ? 'ocr' : id === 'aiType' ? 'ai' : 'bulk'];
+    });
+    $('bulkTypeSelect').innerHTML = '<option value="">' + phrase('種類を選ぶ…', 'Choose a type…') + '</option>' +
+      TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">' + phrase('すべて「' + TYPE_LABELS[t] + '」にする', 'Make all “' + I18n.typeLabel(t) + '”') + '</option>').join('');
+    [el.gradeFormatSelect, el.strokeFormatSelect, el.printFormat].forEach((sel) => {
+      if (!sel) return;
+      fillSelect(sel, FORMAT_ORDER, formatChoiceMap());
+      sel.value = state.format;
+    });
+    renderTypePills();
+    document.querySelectorAll('.type-picker').forEach((host) => { host.innerHTML = ''; buildTypePicker(host); });
+    applyCustomHint();
+    syncControls();
+    renderList();
+    renderSets();
+    if (state.sheetMode === 'stroke') renderStrokePaper();
+    else renderPaper();
+    detectKyokasho();
+    updatePrintLabels();
+    pagePlanCache.key = '';
+    persist();
+  }
+
   function initialize() {
     cacheElements();
-    fillSelect(el.customType, TYPES, TYPE_LABELS);
+    I18n.initLang();
+    I18n.apply(document);
+    fillSelect(el.customType, TYPES, typeLabelsMap());
     el.customType.addEventListener('change', applyCustomHint);
     applyCustomHint();
-    $('bulkTypeSelect').innerHTML = '<option value="">種類を選ぶ…</option>' +
-      TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">すべて「' + esc(TYPE_LABELS[t]) + '」にする</option>').join('');
-    fillSelect(el.customStyle, STYLES, STYLE_LABELS);
+    $('bulkTypeSelect').innerHTML = '<option value="">' + phrase('種類を選ぶ…', 'Choose a type…') + '</option>' +
+      TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">' + phrase('すべて「' + TYPE_LABELS[t] + '」にする', 'Make all “' + I18n.typeLabel(t) + '”') + '</option>').join('');
+    fillSelect(el.customStyle, STYLES, styleLabelsMap());
     el.customStyle.addEventListener('change', refreshTypePickers);
-    const importTypes = { auto: '自動判定' };
-    TYPES.forEach((t) => { importTypes[t] = TYPE_LABELS[t]; });
+    const importTypes = { auto: I18n.typeLabel('auto') };
+    TYPES.forEach((t) => { importTypes[t] = I18n.typeLabel(t); });
     ['ocrType', 'aiType', 'bulkType'].forEach((id) => fillSelect(el[id], Object.keys(importTypes), importTypes));
     el.ocrProvider.innerHTML = Object.keys(KI.OCR_PROVIDERS).map((k) => '<option value="' + k + '">' + esc(KI.OCR_PROVIDERS[k].label) + '</option>').join('');
-    fillSelect(el.strokeFormatSelect, FORMAT_ORDER, FORMAT_CHOICE_LABELS);
-    fillSelect(el.printFormat, FORMAT_ORDER, FORMAT_CHOICE_LABELS);
+    fillSelect(el.strokeFormatSelect, FORMAT_ORDER, formatChoiceMap());
+    fillSelect(el.printFormat, FORMAT_ORDER, formatChoiceMap());
     renderTypePills();
     document.querySelectorAll('.type-picker').forEach(buildTypePicker);
 
