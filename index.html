@@ -29,13 +29,15 @@
         </div>
       </header>
 
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
       <main class="workspace" id="workspace" data-view="edit">
         <!-- ============ 編集 ============ -->
         <section class="pane pane-edit" id="paneEdit">
           <section class="hero">
             <div class="hero-copy">
               <p class="eyebrow" data-i18n="eyebrow">小学校の漢字テスト作成</p>
-              <h2 data-i18n="hero-title" data-i18n-html>縦書きの漢字テストを、<br />その場で作る。</h2>
+              <h2 data-i18n="hero-title" data-i18n-html><span class="hero-line">縦書きの漢字テストを、</span><span class="hero-line">その場で作る。</span></h2>
               <p class="hero-sub" data-i18n="hero-sub" data-i18n-html>学年から選ぶ・自分で入れる・写真から。できたら、そのまま印刷できます。<br />書きじゅんをおぼえる「筆順練習プリント」も作れます。</p>
             </div>
             <div class="hero-sample" aria-hidden="true">
@@ -393,7 +395,7 @@
               <button type="button" id="zoomOut" class="ghost-btn" aria-label="縮小" data-i18n-aria="zoom-out">−</button>
               <span id="zoomLabel" class="zoom-label" aria-live="polite">100%</span>
               <button type="button" id="zoomIn" class="ghost-btn" aria-label="拡大" data-i18n-aria="zoom-in">＋</button>
-              <button type="button" id="zoomFit" class="ghost-btn fit-btn" data-i18n="zoom-fit">画面に合わせる</button>
+              <button type="button" id="zoomFit" class="ghost-btn fit-btn"><span class="fit-long" data-i18n="zoom-fit">画面に合わせる</span><span class="fit-short" data-i18n="zoom-fit-short">合わせる</span></button>
             </div>
             <button type="button" id="printBtn2" class="primary-btn print-btn"><span data-i18n="print">印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
           </div>
@@ -494,8 +496,6 @@
           </p>
         </div>
       </footer>
-
-      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
       <!-- 印刷前の確認（答えが見えてしまう／マスが小さい）。既定は「戻って直す」 -->
       <div id="printConfirm" class="modal" hidden>

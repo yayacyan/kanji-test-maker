@@ -198,8 +198,10 @@ label { display: block; }
   border-radius: 999px;
   background: var(--field);
   color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-family: var(--font-ui);
+  font-weight: 650;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .save-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
@@ -249,8 +251,8 @@ label { display: block; }
   .view-tabs { display: none; }
   .workspace {
     display: grid;
-    grid-template-columns: minmax(400px, 460px) minmax(0, 1fr);
-    gap: 22px;
+    grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+    gap: 16px;
     padding: 8px 12px 14px;
     height: calc(100vh - var(--topbar-h));
   }
@@ -263,33 +265,37 @@ label { display: block; }
 
 /* ---------- 「つくる」ペイン ---------- */
 
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 8px 14px; align-items: end; padding: 20px 4px 2px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 78px; gap: 10px 16px; align-items: start; padding: 20px 4px 2px; }
 .hero-copy { min-width: 0; }
 .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; }
 .hero h2 {
   margin: 0 0 10px;
-  font-size: clamp(1.28rem, 5.3vw, 1.85rem);
+  font-size: clamp(1.2rem, 1.1rem + 1.1vw, 1.7rem);
   font-weight: 800;
-  line-height: 1.22;
+  line-height: 1.28;
   letter-spacing: -0.03em;
   font-feature-settings: "palt";
+  text-wrap: balance;
 }
+.hero-line { display: block; }
 .hero-sub { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.75; max-width: 34em; }
 .hero .save-state { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
 
 /* できあがりの見本：縦書きの1問（用紙と同じ、方格・読み・赤字） */
 .hero-sample {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 12px 8px 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  width: 78px;
+  min-height: 118px;
+  padding: 10px 6px 8px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: var(--shadow);
-  font-family: "YuKyokasho", "UD Digi Kyokasho N-R", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-family: "YuKyokasho", "UD Digi Kyokasho N-R", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
 }
-.hs-no { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid var(--ink); border-radius: 50%; font-size: 0.78rem; font-weight: 700; }
-.hs-text { writing-mode: vertical-rl; font-size: 1.25rem; line-height: 1.5; letter-spacing: 0.04em; }
+.hs-no { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1.5px solid var(--ink); border-radius: 50%; font-size: 0.72rem; font-weight: 700; }
+.hs-text { writing-mode: vertical-rl; font-size: 1.05rem; line-height: 1.45; letter-spacing: 0.04em; max-height: 7.2em; overflow: hidden; }
 .hs-box { display: inline-block; width: 1.25em; height: 1.25em; border: 1.5px solid var(--ink); text-align: center; line-height: 1.2em; color: var(--accent); font-weight: 700; writing-mode: horizontal-tb; }
 .hero-sample rt { font-size: 0.5em; color: var(--muted); }
 .hs-cap { font-family: var(--font-ui); font-size: 0.72rem; color: var(--faint); letter-spacing: 0.04em; }
@@ -481,13 +487,40 @@ details.tool:not([open]) { display: none; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 10px;
-  padding: 6px;
+  padding: 4px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 20px;
   box-shadow: var(--shadow);
+}
+.fit-short { display: none; }
+@media (min-width: 1000px) {
+  .preview-bar { flex-wrap: nowrap; border-radius: 999px; gap: 4px; padding: 3px; }
+  .preview-bar > * { flex: 0 0 auto; }
+  .preview-bar .sheet-seg { flex: 0 0 auto; min-width: 0; }
+  .preview-bar .sheet-seg button { min-height: 34px; padding: 2px 8px; font-size: 0.74rem; white-space: nowrap; }
+  .preview-bar .bar-field { flex: 0 0 auto; min-width: 0; gap: 4px; }
+  .preview-bar .bar-label { font-size: 0.7rem; }
+  .preview-bar .bar-field select { min-height: 34px; min-width: 0; width: auto; max-width: none; font-size: 0.74rem; padding: 2px 22px 2px 8px; background-position: right 8px center; }
+  .preview-bar .zoom-group { flex: 0 0 auto; gap: 2px; }
+  .preview-bar .zoom-group .ghost-btn { min-width: 28px; min-height: 34px; padding: 2px 6px; }
+  .preview-bar .zoom-group .fit-btn { padding-inline: 8px; font-size: 0.74rem; }
+  .preview-bar .zoom-label { min-width: 34px; font-size: 0.7rem; }
+  .preview-bar .print-btn { flex: 0 0 auto; margin-left: auto; white-space: nowrap; min-height: 34px; padding: 4px 10px; font-size: 0.76rem; gap: 6px; }
+  .preview-bar .print-sub { font-family: var(--font-ui); }
+}
+@media (min-width: 1000px) and (max-width: 1279px) {
+  .preview-bar .bar-label { display: none; }
+  .preview-bar .print-sub { display: none; }
+  .preview-bar .fit-long { display: none; }
+  .preview-bar .fit-short { display: inline; }
+}
+@media (min-width: 1280px) {
+  .preview-bar { gap: 6px; padding: 4px; }
+  .preview-bar .sheet-seg button { padding: 4px 12px; font-size: 0.8rem; min-height: 36px; }
+  .preview-bar .print-btn { min-height: 36px; padding: 6px 12px; font-size: 0.82rem; }
 }
 .seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--field); }
 .seg button { min-height: 42px; padding: 6px 15px; border-radius: 999px; background: transparent; font-weight: 700; color: var(--muted); }
@@ -557,22 +590,25 @@ details.tool:not([open]) { display: none; }
 /* ---------- 通知 ---------- */
 
 .toast {
-  position: fixed;
-  left: 12px;
-  top: calc(env(safe-area-inset-top, 0px) + 78px); /* 上の帯の下。プレビュー（右側・下側）にはかぶせない */
-  z-index: 60;
-  width: max-content;
-  max-width: min(440px, calc(100vw - 24px));
-  padding: 12px 20px;
-  transform: none;
-  border-radius: 26px;
+  position: relative;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  width: fit-content;
+  max-width: min(640px, calc(100% - 24px));
+  margin: 8px 12px 0;
+  padding: 10px 16px;
+  border-radius: 16px;
   background: var(--black);
   color: #fff;
   font-size: 0.88rem;
-  line-height: 1.55;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
+  line-height: 1.5;
+  box-shadow: var(--shadow);
   cursor: pointer;
 }
+.toast[hidden] { display: none !important; }
 .toast.is-warn-legacy { }
 .toast-action {
   margin-left: 10px;
@@ -586,7 +622,7 @@ details.tool:not([open]) { display: none; }
 }
 .toast.is-warn .toast-action { background: rgba(0, 0, 0, 0.1); }
 @media (min-width: 1000px) {
-  .toast { top: 86px; left: 16px; max-width: 400px; }
+  .toast { margin: 8px 16px 0; max-width: min(560px, 46vw); }
 }
 
 /* ---------- 印刷前の確認（画面内のダイアログ） ---------- */
@@ -650,11 +686,25 @@ details.tool:not([open]) { display: none; }
   .size-hint { margin-top: 6px; margin-bottom: 4px; }
 }
 
+@media (max-width: 720px) {
+  .topbar { gap: 6px; padding-right: 6px; }
+  .header-actions { flex: none; gap: 6px; }
+  .brand-block { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .brand-name { overflow: hidden; text-overflow: ellipsis; }
+  .lang-switch { flex: none; }
+  .lang-switch button { white-space: nowrap; min-height: 36px; padding: 0 8px; }
+  #printBtn { min-height: 36px; padding: 6px 10px; font-size: 0.78rem; }
+  #printBtn .print-sub { display: none; }
+}
+@media (max-width: 520px) {
+  .topbar { flex-wrap: wrap; border-radius: 22px; row-gap: 6px; }
+  .brand-block { flex: 1 1 100%; overflow: visible; }
+  .brand-name { overflow: visible; text-overflow: clip; }
+  .header-actions { flex: 1 1 auto; width: 100%; justify-content: flex-end; }
+}
 @media (max-width: 420px) {
   .topbar { margin-inline: 8px; padding-left: 10px; }
-  .brand-name { font-size: 0.98rem; }
-  .print-btn { flex-direction: column; gap: 0; padding-block: 5px; }
-  .print-btn .print-sub { padding: 0; background: none; font-size: 0.62rem; opacity: 0.8; }
+  .brand-name { font-size: 0.92rem; }
   .hero-sub { display: none; }
   .hero-sample { padding: 10px 6px 6px; }
   .hs-text { font-size: 1.05rem; }
@@ -743,13 +793,15 @@ details.tool:not([open]) { display: none; }
 
 /* 小さな見本（縦書き） */
 .tv {
-  display: flex; flex-direction: row-reverse; align-items: flex-end; justify-content: center; gap: 3px;
-  height: 66px; padding: 6px 4px; border-radius: 10px; background: var(--field);
+  display: flex; flex-direction: row-reverse; align-items: center; justify-content: center; gap: 3px;
+  height: 66px; padding: 4px; border-radius: 10px; background: var(--field);
+  overflow: hidden; box-sizing: border-box;
 }
 .type-fold > summary .tv { width: 64px; }
 .tv-t {
-  writing-mode: vertical-rl; font-family: "YuKyokasho", "UD Digi Kyokasho N-R", "Hiragino Mincho ProN", "Yu Mincho", serif;
-  font-size: 13px; line-height: 1; font-weight: 700; color: var(--ink); white-space: nowrap;
+  writing-mode: vertical-rl; font-family: "YuKyokasho", "UD Digi Kyokasho N-R", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
+  font-size: 12px; line-height: 1.05; font-weight: 700; color: var(--ink); white-space: nowrap;
+  max-height: 100%; overflow: hidden;
 }
 .tv-t rt { font-size: 6px; font-weight: 600; }
 .tv-u { font-style: normal; border-right: 1.5px solid var(--accent); }
@@ -771,14 +823,16 @@ details.tool:not([open]) { display: none; }
 /* 学年から作るときの種類は、最初の画面で「作る」ボタンを押し下げないよう、横並びの小さなカードにする */
 #typePills.pill-group { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 #typePills .type-card {
-  flex-direction: row; align-items: center; gap: 8px; min-height: 48px; padding: 4px 8px 4px 4px;
+  flex-direction: row; align-items: center; gap: 8px; min-height: 52px; padding: 4px 22px 4px 4px;
+  overflow: hidden;
 }
-#typePills .type-card .tv { zoom: 0.68; flex: none; width: 60px; }
+#typePills .type-card .tv { flex: none; width: 44px; height: 44px; padding: 3px 2px; }
+#typePills .type-card .tv-t { font-size: 11px; }
 #typePills .type-card .tc-desc { font-size: 0.64rem; line-height: 1.3; }
 #typePills .type-card .tc-name { font-size: 0.74rem; }
 #typePills .pill-btn.type-card.is-active::after {
-  top: -6px; right: -4px; width: 18px; height: 18px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 0.68rem; line-height: 1; background: var(--accent); color: #fff;
+  top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.62rem; line-height: 1; background: var(--accent); color: #fff;
 }
 
 .tc-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
