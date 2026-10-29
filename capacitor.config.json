@@ -1,0 +1,8 @@
+{
+  "appId": "io.github.yayacyan.kanjitestmaker",
+  "appName": "漢字テストメーカー",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

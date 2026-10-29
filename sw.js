@@ -11,6 +11,7 @@ const SHELL = [
   './app.js',
   './i18n.js',
   './import.js',
+  './config.js',
   './kanji-db.js',
   './kanji-strokes-base.js',
   './kanji-strokes-g1.js',

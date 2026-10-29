@@ -1939,6 +1939,9 @@
   /** 印刷の画面を開く。開かなかったとき（LINE・Discord などアプリ内のブラウザ）は、理由と対処を知らせる */
   function printNow() {
     renderPrintArea();
+    if (window.KanjiConfig && window.KanjiConfig.isNativeApp() && window.KanjiPrint && typeof window.KanjiPrint.print === 'function') {
+      try { window.KanjiPrint.print(); return; } catch (error) { /* 端末の印刷が使えなければ、下の window.print に任せる */ }
+    }
     let started = false;
     const mark = () => { started = true; };
     window.addEventListener('beforeprint', mark, { once: true });
@@ -3669,6 +3672,7 @@
 
   function onLanguageChanged() {
     I18n.apply(document);
+    if (window.KanjiConfig) window.KanjiConfig.applySponsor(document);
     const keep = {
       type: el.customType.value,
       style: el.customStyle.value,
@@ -3720,6 +3724,7 @@
     cacheElements();
     I18n.initLang();
     I18n.apply(document);
+    if (window.KanjiConfig) window.KanjiConfig.applySponsor(document);
     fillSelect(el.customType, TYPES, typeLabelsMap());
     el.customType.addEventListener('change', applyCustomHint);
     applyCustomHint();
