@@ -19,7 +19,7 @@
   --r-md: 18px;
   --r-sm: 14px;
   --shadow: 0 1px 2px rgba(40, 30, 20, 0.05), 0 10px 28px rgba(40, 30, 20, 0.07);
-  --font-ui: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  --font-ui: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Geist Mono", Menlo, Consolas, monospace;
   --topbar-h: 78px;
   --tabbar-h: 84px;
@@ -667,12 +667,29 @@ details.tool:not([open]) { display: none; }
 #printArea { display: none; }
 
 @media print {
-  html, body { background: #fff !important; }
-  .app-shell, .toast { display: none !important; }
-  #printArea { display: block; }
+  html, body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .app-shell, .toast, .site-footer { display: none !important; }
+  #printArea { display: block; margin: 0; padding: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-sheet { break-after: page; page-break-after: always; }
-  .print-sheet:last-child { break-after: auto; page-break-after: auto; }
+  .print-sheet {
+    overflow: hidden;
+    width: var(--W);
+    height: calc(var(--H) - var(--slack, 1.2mm));
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* avoid は Safari が最後に空白ページを足すのを防ぐ。auto だと足すことがある */
+  .print-sheet:last-child { break-after: avoid; page-break-after: avoid; }
+  .paper { margin: 0 !important; box-shadow: none !important; }
 }
 
 .notice-fix { min-height: 44px; padding: 6px 16px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 700; white-space: nowrap; }

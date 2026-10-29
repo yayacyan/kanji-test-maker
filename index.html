@@ -149,7 +149,7 @@
                 <span class="field-label">用紙の大きさ</span>
                 <select id="gradeFormatSelect" class="select-input"></select>
               </label>
-              <p class="hint size-hint">書きやすい大きさにするには、A4縦なら10問くらいまでがおすすめです（問題の種類や文の長さで変わります。作ったあと、大きさの目安が出ます）。マスを大きくしたいときは、まず用紙をA4横にして試してみてください。多くの場合は同じ問題数でも大きくなりますが、練習マス・なぞり書きのようにマスを下へ積む種類では、かえって小さくなることもあります。それでも小さいときはA3横も試せます（A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります。コンビニなどの印刷が必要です）。問題を作ったあとは、用紙を変えるとマスが何mmになるかを実際に測って案内します。</p>
+              <p class="hint size-hint">書きやすい大きさにするには、A4縦・レター縦なら10問くらいまでがおすすめです（問題の種類や文の長さで変わります。作ったあと、大きさの目安が出ます）。マスを大きくしたいときは、まず用紙をA4横かレター横にして試してみてください。多くの場合は同じ問題数でも大きくなりますが、練習マス・なぞり書きのようにマスを下へ積む種類では、かえって小さくなることもあります。それでも小さいときはA3横も試せます（A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります。コンビニなどの印刷が必要です）。レターは、アメリカなどでよく使う用紙の大きさです。問題を作ったあとは、用紙を変えるとマスが何mmになるかを実際に測って案内します。</p>
 
               <span class="field-label mt-12">問題の種類（複数選べます）</span>
               <div class="pill-group" id="typePills"></div>
@@ -296,7 +296,7 @@
                     </select>
                   </label>
                 </div>
-                <p class="hint">マスを増やすと1マスが小さくなります。小さくなりすぎるときは、用紙をA4横・A3横にしてください。</p>
+                <p class="hint">マスを増やすと1マスが小さくなります。小さくなりすぎるときは、用紙をA4横・レター横・A3横にしてください。</p>
               </details>
 
               <!-- 筆順データの正直な説明。何を確かめ、何を確かめていないかを先生に先に伝えるため。
@@ -380,6 +380,8 @@
               <select id="printFormat" class="select-input" aria-label="用紙サイズ">
                 <option value="A4-portrait">A4 縦</option>
                 <option value="A4-landscape">A4 横</option>
+                <option value="Letter-portrait">レター 縦（米国）</option>
+                <option value="Letter-landscape">レター 横（米国）</option>
                 <option value="A3-landscape">A3 横</option>
               </select>
             </label>
@@ -448,7 +450,7 @@
                 <label class="check-row"><input type="checkbox" data-setting="printBoth" /><span>印刷するとき、問題用紙と解答用紙を続けて出す</span></label>
               </div>
             </div>
-            <p class="hint">PDFにするとき：印刷の画面で「PDFに保存」を選びます（用紙サイズは自動で合います）。</p>
+            <p class="hint">PDFにするとき：印刷の画面で「PDFに保存」を選びます（用紙サイズは自動で合います）。端が切れるときは、余白を「なし」、倍率を「100%」にして、用紙を画面で選んだ大きさ（A4・レター・A3）に合わせてください。</p>
             </div>
           </details>
 

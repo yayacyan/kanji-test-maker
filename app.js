@@ -30,14 +30,33 @@
     '1-2': '小学1〜2年', '1-3': '小学1〜3年', '1-6': '小学1〜6年'
   };
   const FORMATS = {
-    'A4-portrait': { w: 210, h: 297, cap: 8, minCols: 5 },
-    'A4-landscape': { w: 297, h: 210, cap: 8, minCols: 6 },
-    'A3-landscape': { w: 420, h: 297, cap: 10, minCols: 6 }
+    'A4-portrait': { w: 210, h: 297, cap: 8, minCols: 5, css: 'A4 portrait' },
+    'A4-landscape': { w: 297, h: 210, cap: 8, minCols: 6, css: 'A4 landscape' },
+    'Letter-portrait': { w: 215.9, h: 279.4, cap: 8, minCols: 5, css: 'letter portrait' },
+    'Letter-landscape': { w: 279.4, h: 215.9, cap: 8, minCols: 6, css: 'letter landscape' },
+    'A3-landscape': { w: 420, h: 297, cap: 10, minCols: 6, css: 'A3 landscape' }
   };
+  const FORMAT_ORDER = ['A4-portrait', 'A4-landscape', 'Letter-portrait', 'Letter-landscape', 'A3-landscape'];
+  // 文中で使う短い名前（「A4横で約9mm」）
+  const FORMAT_LABELS = {
+    'A4-portrait': 'A4縦', 'A4-landscape': 'A4横',
+    'Letter-portrait': 'レター縦', 'Letter-landscape': 'レター横',
+    'A3-landscape': 'A3横'
+  };
+  // 選択欄の表示（A4 の表記に合わせ、レターは米国でよく使う用紙だと分かるようにする）
+  const FORMAT_CHOICE_LABELS = {
+    'A4-portrait': 'A4 縦', 'A4-landscape': 'A4 横',
+    'Letter-portrait': 'レター 縦（米国）', 'Letter-landscape': 'レター 横（米国）',
+    'A3-landscape': 'A3 横'
+  };
+  // 紙の端から印刷されない領域がある（特にレターの家庭用プリンターは下端が約0.5インチ）。
+  // 文字・マス・出典は、この余白の内側に置く。@page の margin は 0 にし、余白は用紙の padding で取る
+  // （ブラウザが余白を二重に足すと、用紙が縮んで端が切れるため）。
+  const PAD = { top: 10, x: 10, bottom: 22, safe: 13, slack: 1.2 };
   const FONT_STACKS = {
-    kyokasho: "'UD Digi Kyokasho N-R','UD デジタル 教科書体 N-R','UD デジタル 教科書体 NK-R','YuKyokasho','游教科書体','Kyokasho ICA','Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif",
-    mincho: "'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif",
-    gothic: "'Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif"
+    kyokasho: "'UD Digi Kyokasho N-R','UD デジタル 教科書体 N-R','UD デジタル 教科書体 NK-R','YuKyokasho','游教科書体','Kyokasho ICA','Hiragino Mincho ProN','Yu Mincho','Noto Serif JP','Noto Serif CJK JP',serif",
+    mincho: "'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP','Noto Serif CJK JP',serif",
+    gothic: "'Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP','Noto Sans CJK JP',sans-serif"
   };
   const ZOOM_STEPS = [0.3, 0.4, 0.5, 0.6, 0.75, 1, 1.25, 1.5];
   const DESKTOP_MIN = 1000;
@@ -92,7 +111,7 @@
   }
 
   const state = defaultState();
-  const ui = { openId: null };
+  const ui = { openId: null, bootToolId: null };
 
   const $ = (id) => document.getElementById(id);
   const el = {};
@@ -155,7 +174,7 @@
     if (!FONT_STACKS[state.font]) state.font = 'kyokasho';
     if (!Array.isArray(state.gen.types) || !state.gen.types.length) state.gen.types = ['kaki'];
     if (!GRADE_GROUPS[state.gen.range]) state.gen.range = '1-6';
-    if (![10, 20, 30, 50].includes(Number(state.gen.count))) state.gen.count = 10;
+    if (![10, 15, 20, 30, 50].includes(Number(state.gen.count))) state.gen.count = 10;
     state.gen.types = TYPES.filter((t) => state.gen.types.includes(t));
     if (!state.gen.types.length) state.gen.types = ['kaki'];
     if (!state.gen.counts || typeof state.gen.counts !== 'object') state.gen.counts = {};
@@ -1144,9 +1163,8 @@
     const tiers = Math.ceil(n / perTier);
     const cols = Math.max(perTier, fmt.minCols);
 
-    const padX = 10;
-    const bodyW = fmt.w - padX * 2;
-    const bodyH = fmt.h - 10 - 13 - headHeight() - insH; // 上余白・下余白・見出し・説明文
+    const bodyW = fmt.w - PAD.x * 2;
+    const bodyH = fmt.h - PAD.top - PAD.bottom - headHeight() - insH; // 上余白・下余白・見出し・説明文
     const gap = 3;
     const tierH = (bodyH - gap * (tiers - 1)) / tiers;
     const colW = bodyW / cols;
@@ -1256,7 +1274,7 @@
     const key = fontKey();
     if (fontCache.key === key) { fittedTiers = fontCache.tiers; fittedCell = fontCache.cell; return fontCache.f; }
     const items = state.showInstructions ? instructionItems(state.questions) : [];
-    const insH = instructionHeight(items, FORMATS[state.format].w - 20);
+    const insH = instructionHeight(items, FORMATS[state.format].w - PAD.x * 2);
     let f = computeLayout(state.questions.map(describe), insH).f;
     let tiers = 0;
     let cell = 0;
@@ -1328,7 +1346,7 @@
     const answerMode = mode === 'answer';
     const descs = state.questions.map(describe);
     const items = state.showInstructions ? instructionItems(state.questions) : [];
-    const lay = computeLayout(descs, instructionHeight(items, FORMATS[state.format].w - 20), forceTiers);
+    const lay = computeLayout(descs, instructionHeight(items, FORMATS[state.format].w - PAD.x * 2), forceTiers);
     if (fontMm) {
       lay.f = fontMm;
       // 1列に入るマスの数は、マスの大きさ（cellF）で決まる。上の余白ぶんは問題文の大きさで数える
@@ -1364,7 +1382,7 @@
     const sub = str(state.subtitle).trim();
 
     return '<div class="paper ' + (answerMode ? 'is-answer' : 'is-question') + '" style="' +
-      '--W:' + lay.fmt.w + 'mm;--H:' + lay.fmt.h + 'mm;--f:' + lay.cellF.toFixed(2) + 'mm;--tf:' + lay.f.toFixed(2) + 'mm;--cols:' + lay.cols + ';--head:' + headHeight() + 'mm;' +
+      paperBoxStyle(lay.fmt) + '--f:' + lay.cellF.toFixed(2) + 'mm;--tf:' + lay.f.toFixed(2) + 'mm;--cols:' + lay.cols + ';--head:' + headHeight() + 'mm;' +
       'font-family:' + FONT_STACKS[state.font] + '">' +
       '<div class="paper-head">' +
         '<div class="paper-title">' + esc(state.title || '漢字テスト') + (answerMode ? '<span class="stamp">解答</span>' : '') + '</div>' +
@@ -1380,7 +1398,7 @@
 
   function insHeightFor(list) {
     const items = state.showInstructions ? instructionItems(list) : [];
-    return instructionHeight(items, FORMATS[state.format].w - 20);
+    return instructionHeight(items, FORMATS[state.format].w - PAD.x * 2);
   }
 
   /**
@@ -1445,7 +1463,6 @@
 
   /** 小学生が鉛筆で書きやすい解答マスの目安(mm) */
   const GOOD_CELL = 7.5;
-  const FORMAT_LABELS = { 'A4-portrait': 'A4縦', 'A4-landscape': 'A4横', 'A3-landscape': 'A3横' };
 
   /** ほかの用紙で測った解答マスの大きさ（同じ題組・同じ設定のあいだは覚えておく） */
   const otherCellCache = new Map();
@@ -1619,9 +1636,26 @@
     save();
   }
 
+  /** 画面の用紙と印刷の @page で、余白の数字がずれないようにする */
+  function paperBoxStyle(fmt) {
+    return '--W:' + fmt.w + 'mm;--H:' + fmt.h + 'mm;' +
+      '--pad-t:' + PAD.top + 'mm;--pad-x:' + PAD.x + 'mm;--pad-b:' + PAD.bottom + 'mm;' +
+      '--safe:' + PAD.safe + 'mm;--slack:' + PAD.slack + 'mm;';
+  }
+
   function updatePageStyle() {
     const fmt = FORMATS[state.format];
-    el.pageStyle.textContent = '@page { size: ' + fmt.w + 'mm ' + fmt.h + 'mm; margin: 0; }';
+    // 1つ目は用紙の名前（古い Safari はミリ寸法を無視することがある）。
+    // 2つ目はミリ寸法（Chrome はこちらを使う）。両方わかるブラウザでは後の指定が勝つ。
+    // margin は 0mm。単位なしの 0 は Safari が無視して、余白を足したうえで端を切ることがある。
+    el.pageStyle.textContent =
+      '@page{size:' + fmt.css + ';margin:0mm}' +
+      '@page{size:' + fmt.w + 'mm ' + fmt.h + 'mm;margin:0mm}';
+  }
+
+  function wrapPrintSheet(html) {
+    const fmt = FORMATS[state.format];
+    return '<div class="print-sheet" style="' + paperBoxStyle(fmt) + '">' + html + '</div>';
   }
 
   function renderPrintArea() {
@@ -1633,7 +1667,7 @@
     }
     const modes = state.printBoth ? ['question', 'answer'] : [state.sheetMode];
     const f = fittedFont();
-    el.printArea.innerHTML = modes.map((m) => '<div class="print-sheet">' + buildSheet(m, f, fittedTiers, fittedCell) + '</div>').join('');
+    el.printArea.innerHTML = modes.map((m) => wrapPrintSheet(buildSheet(m, f, fittedTiers, fittedCell))).join('');
     updatePageStyle();
   }
 
@@ -1711,7 +1745,7 @@
       if (ng) list.push({ title: '入らなかった字があります', text: ng });
       if (strokeInfo.cut) list.push({ title: STROKE_MAX + '字を超えました', text: 'あとの' + strokeInfo.cut + '字は入っていません。何回かに分けて作ってください。' });
       if (strokeInfo.cell && strokeInfo.cell < GOOD_CELL) {
-        list.push({ title: '練習マスが小さめです（約' + strokeInfo.cell.toFixed(1) + 'mm）', text: 'マスの数を減らすか、用紙をA4横・A3横にすると大きくなります。' });
+        list.push({ title: '練習マスが小さめです（約' + strokeInfo.cell.toFixed(1) + 'mm）', text: 'マスの数を減らすか、用紙をA4横・レター横・A3横にすると大きくなります。' });
       }
       return list;
     }
@@ -1793,7 +1827,7 @@
   const STROKE_SG_MAX = 52;   // 同・最大
   const STROKE_ROWS_MAX = 3;  // 練習マスの段数の上限
   /* 用紙のすみに出す出典。2行までに収まる長さにすること
-     （.s-credit は下から 5mm の位置にあり、用紙の下の余白は 13mm ＝ 3行目は本文に重なる）。 */
+     （.s-credit は下から PAD.safe の位置。用紙の下余白は PAD.bottom。3行目は本文に重なる）。 */
   const STROKE_CREDIT = '筆順：KanjiVG (Ulrich Apel) CC BY-SA 3.0 ／ 読み：KANJIDIC2 (EDRDG) CC BY-SA 4.0 ／ 音訓：常用漢字表（文化庁）';
   const STROKE_NOTE = '※筆順は教科書によって異なることがあります。出典と確かめた範囲は、作成画面の「筆順データについて」に記載しています。';
   const STROKE_SAMPLE = '水 木 日 上 花 祭 曜 鏡';
@@ -1894,7 +1928,7 @@
   function strokeGeom(opts) {
     const o = opts || {};
     const fmt = FORMATS[state.format];
-    const contentW = fmt.w - 20;                 // .paper の左右の余白はそれぞれ 10mm
+    const contentW = fmt.w - PAD.x * 2;          // .paper の左右の余白（PAD.x）
     const sg = Math.max(STROKE_SG_MIN, Math.min(STROKE_SG_MAX, o.sg || STROKE_SG_MIN));
     const smeta = Math.min(58, Math.max(40, Math.round(contentW * 0.25)));
     const gapc = 1.6;
@@ -1993,7 +2027,7 @@
       ? '<div class="paper-empty">' + empty + '</div>'
       : list.map(strokeEntryHtml).join('');
     return '<div class="paper paper-stroke" style="' +
-      '--W:' + fmt.w + 'mm;--H:' + fmt.h + 'mm;--f:4mm;--tf:4mm;--head:14mm;' +
+      paperBoxStyle(fmt) + '--f:4mm;--tf:4mm;--head:14mm;' +
       '--sg:' + g.sg + 'mm;--smeta:' + g.smeta + 'mm;--sc:' + g.sc.toFixed(2) + 'mm;--sgap:' + g.gapc + 'mm;' +
       'font-family:' + FONT_STACKS[state.font] + '">' +
       '<div class="paper-head">' +
@@ -2142,7 +2176,7 @@
     const empty = list.length ? '' : STROKE_EMPTY;
     const sheets = pages.map((p, i) => strokeSheetHtml(p, i + 1, pages.length, i === 0 ? empty : '', fit.geom));
     el.paperHost.innerHTML = sheets.map((s) => '<div class="sheet-scaler"><div class="paper-wrap">' + s + '</div></div>').join('');
-    strokePrintHtml = sheets.map((s) => '<div class="print-sheet">' + s + '</div>').join('');
+    strokePrintHtml = sheets.map((s) => wrapPrintSheet(s)).join('');
     strokeInfo = { pages: list.length ? pages.length : 0, chars: list.length, ng: ng, cut: cut, cell: fit.geom.sc };
     applyZoom();
     renderPrintArea();
@@ -2903,10 +2937,14 @@
     // アコーディオン（1つだけ開く）
     document.querySelectorAll('details.tool').forEach((d) => d.addEventListener('toggle', () => {
       if (!d.open) return;
+      // Safari は、起動時に欄を開いた toggle が少し遅れて届く。
+      // そのイベントで用紙を切り替えると、保存していた筆順練習のプレビューが問題用紙に戻る。
+      const fromBoot = ui.bootToolId && d.id === ui.bootToolId;
+      if (fromBoot) ui.bootToolId = null;
       document.querySelectorAll('details.tool').forEach((o) => { if (o !== d) o.open = false; });
       state.openTool = d.id.replace('tool-', '');
       syncTiles();
-      syncSheetModeToTool(state.openTool);
+      if (!fromBoot) syncSheetModeToTool(state.openTool);
       save();
     }));
 
@@ -3083,7 +3121,7 @@
     // 用紙設定
     el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; syncFormatSelects(); renderPaper(); save(); });
     if (el.gradeFormatSelect) {
-      fillSelect(el.gradeFormatSelect, ['A4-portrait', 'A4-landscape', 'A3-landscape'], { 'A4-portrait': 'A4 縦', 'A4-landscape': 'A4 横', 'A3-landscape': 'A3 横' });
+      fillSelect(el.gradeFormatSelect, FORMAT_ORDER, FORMAT_CHOICE_LABELS);
       el.gradeFormatSelect.value = state.format; // fillSelect でいったん空になるため、ここで現在の用紙を入れ直す
       el.gradeFormatSelect.addEventListener('change', () => { state.format = el.gradeFormatSelect.value; syncFormatSelects(); renderPaper(); save(); });
     }
@@ -3135,13 +3173,17 @@
     TYPES.forEach((t) => { importTypes[t] = TYPE_LABELS[t]; });
     ['ocrType', 'aiType', 'bulkType'].forEach((id) => fillSelect(el[id], Object.keys(importTypes), importTypes));
     el.ocrProvider.innerHTML = Object.keys(KI.OCR_PROVIDERS).map((k) => '<option value="' + k + '">' + esc(KI.OCR_PROVIDERS[k].label) + '</option>').join('');
-    fillSelect(el.strokeFormatSelect, ['A4-portrait', 'A4-landscape', 'A3-landscape'], { 'A4-portrait': 'A4 縦', 'A4-landscape': 'A4 横', 'A3-landscape': 'A3 横' });
+    fillSelect(el.strokeFormatSelect, FORMAT_ORDER, FORMAT_CHOICE_LABELS);
+    fillSelect(el.printFormat, FORMAT_ORDER, FORMAT_CHOICE_LABELS);
     renderTypePills();
     document.querySelectorAll('.type-picker').forEach(buildTypePicker);
 
     const hadSaved = loadState();
     if (!state.gen.types.every((t) => Number.isFinite(Number(state.gen.counts[t])))) resetCounts();
     syncControls();
+    // この直後に届く「最初から開いている欄」の toggle では、用紙の種類を変えない
+    ui.bootToolId = 'tool-' + state.openTool;
+    setTimeout(() => { ui.bootToolId = null; }, 1000);
     applyView();
 
     ocrImporter = createImporter({
