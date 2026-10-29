@@ -4,7 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>漢字テストメーカー</title>
-    <link rel="icon" href="data:," />
+    <meta name="theme-color" content="#faf8f4" />
+    <meta name="description" content="Kanji Test Maker. 小学校の漢字テストと筆順練習プリントを、その場で作って印刷します。" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="漢字テストメーカー" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="paper.css" />
     <style id="pageStyle"></style>
@@ -30,6 +38,10 @@
       </header>
 
       <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+      <div id="updateNotice" class="update-notice" hidden>
+        <span data-i18n="update-msg">新しい版があります。読み込むと、最新の画面になります。</span>
+        <button type="button" id="updateBtn" class="soft-btn" data-i18n="update-btn">読み込む</button>
+      </div>
 
       <main class="workspace" id="workspace" data-view="edit">
         <!-- ============ 編集 ============ -->
@@ -352,15 +364,23 @@
             <div id="listNotice" class="list-notice" role="status" hidden></div>
             <div id="questionList" class="question-list"></div>
 
-            <details class="mini-details sets">
-              <summary data-i18n="sets-sum">名前をつけて保存・呼び出し（学年や回ごとに使い分ける）</summary>
-              <p class="hint" data-i18n="sets-hint">いまの問題と用紙の設定を、名前をつけて保存できます。（例：小3 第5回 A ／ 小5 第5回 B）</p>
+            <section class="panel saved-sets" id="savedSets">
+              <div class="list-head">
+                <h2 data-i18n="sets-title">保存した問題</h2>
+              </div>
+              <p class="hint" data-i18n="sets-hint">いまのテスト、または筆順練習を、名前をつけてこの端末に残せます。名前を空のまま保存すると、日付・学年・問題数が入ります。別の端末へは、一覧のファイルで移せます。</p>
               <div class="set-save">
-                <input id="setName" class="text-input" type="text" maxlength="30" placeholder="例：小3 第5回 A" aria-label="セットの名前" data-i18n-placeholder="ph-set" data-i18n-aria="set-name" />
+                <input id="setName" class="text-input" type="text" maxlength="40" placeholder="例：2026-10-29 小学3年 15問" aria-label="セットの名前" data-i18n-placeholder="ph-set" data-i18n-aria="set-name" />
                 <button type="button" id="saveSetBtn" class="soft-btn" data-i18n="save">保存</button>
               </div>
+              <p id="storageUsage" class="hint storage-usage"></p>
               <div id="setList" class="set-list"></div>
-            </details>
+              <div class="grid-two set-file">
+                <button type="button" id="exportSetsBtn" class="soft-btn full-width" data-i18n="export-sets">一覧を書き出す</button>
+                <button type="button" id="importSetsBtn" class="soft-btn full-width" data-i18n="import-sets">一覧を読み込む</button>
+              </div>
+              <input id="importSetsFile" type="file" accept=".json,application/json" hidden />
+            </section>
 
             <details class="mini-details backup">
               <summary data-i18n="backup-sum">保存・読み込み（別の端末で使うとき）</summary>

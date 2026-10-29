@@ -477,13 +477,42 @@ details.tool:not([open]) { display: none; }
 
 .list-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; padding: 12px 14px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent-ink); font-size: 0.84rem; line-height: 1.65; }
 
+.saved-sets { margin-top: 18px; }
 .set-save { display: flex; gap: 8px; margin: 10px 0; }
 .set-save .text-input { flex: 1 1 auto; min-width: 0; }
+.storage-usage { margin: 0 0 10px; font-size: 0.78rem; }
+.storage-usage.is-warn { color: var(--accent-ink); }
 .set-list { display: grid; gap: 8px; }
-.set-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; }
-.set-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: 0.88rem; }
+.set-item { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; }
+.set-info { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; font-size: 0.88rem; }
+.set-info strong { overflow-wrap: anywhere; }
 .set-info span { color: var(--muted); font-size: 0.76rem; }
+.set-actions { flex: 1 1 220px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.set-actions button { white-space: nowrap; }
+.set-rename { flex: 1 1 100%; display: flex; gap: 6px; }
+.set-rename .text-input { flex: 1 1 auto; min-width: 0; }
+.set-file { margin-top: 12px; }
+@media (max-width: 520px) {
+  .saved-sets .grid-two { grid-template-columns: 1fr; }
+}
 .backup { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.update-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 12px 0;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.update-notice[hidden] { display: none !important; }
+.update-notice .soft-btn { min-height: 40px; background: #fff; }
+/* 将来、広告やお知らせを足すときは、フッターの直前に全幅で1段置く。
+   下の固定ナビや、この保存した一覧とは重ねない。いまは何も置かない。 */
 
 /* ---------- プレビューのペイン ---------- */
 

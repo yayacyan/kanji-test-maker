@@ -3009,16 +3009,19 @@
     refreshPromptText();
   }
 
-  // ---- 名前をつけて保存・呼び出し（学年・回ごとに使い分ける） ------------------------
+  // ---- 保存した問題（この端末だけ。サーバーには送らない） ------------------------
 
   const SETS_KEY = 'kanji-test-maker-sets';
-  const SET_SETTINGS = ['format', 'tiers', 'title', 'subtitle', 'pointsEach', 'font', 'showName', 'showScore', 'showClass', 'showDate',
-    'showInstructions', 'readingHint'];
+  const SET_SETTING_KEYS = ['format', 'tiers', 'title', 'subtitle', 'pointsEach', 'font', 'showName', 'showScore', 'showClass', 'showDate',
+    'showInstructions', 'readingHint', 'okuriReadingHint', 'okuriCells', 'practiceReps', 'sheetMode',
+    'strokeText', 'strokeTitle', 'strokeTrace', 'strokeBlank', 'strokePickGrade'];
+  const RANGE_I18N = { '1': 'g1', '2': 'g2', '3': 'g3', '4': 'g4', '5': 'g5', '6': 'g6', '1-2': 'g12', '1-3': 'g13', '1-6': 'g16' };
+  let renamingId = null;
 
   function readSets() {
     try {
       const list = JSON.parse(localStorage.getItem(SETS_KEY) || '[]');
-      return Array.isArray(list) ? list : [];
+      return Array.isArray(list) ? list.filter((set) => set && typeof set === 'object') : [];
     } catch (error) {
       return [];
     }
@@ -3029,97 +3032,311 @@
       localStorage.setItem(SETS_KEY, JSON.stringify(list));
       return true;
     } catch (error) {
-      toast('保存できませんでした（このブラウザの保存場所がいっぱいです）', 'warn');
+      const quota = error && (error.name === 'QuotaExceededError' || error.code === 22 || error.code === 1014);
+      toast(quota
+        ? phrase('保存できませんでした。このブラウザの保存場所がいっぱいです。いらない問題を消すか、一覧をファイルに書き出してください。',
+          'Could not save. This browser is out of space. Delete a saved test, or export the list to a file.')
+        : phrase('保存できませんでした。', 'Could not save.'), 'warn');
+      updateStorageLine(true);
       return false;
+    }
+  }
+
+  function strokeCountNow() {
+    try { return parseStrokeText(state.strokeText).ok.length; } catch (error) { return 0; }
+  }
+
+  function suggestSetName() {
+    const now = new Date();
+    const date = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const strokes = strokeCountNow();
+    if ((state.openTool === 'stroke' || state.sheetMode === 'stroke') && strokes && !state.questions.length) {
+      return date + ' ' + phrase('筆順 ' + strokes + '字', 'Strokes ' + strokes);
+    }
+    const grade = I18n.t(RANGE_I18N[state.gen.range] || 'g16');
+    const n = state.questions.length || Number(state.gen.count) || 0;
+    return date + ' ' + grade + ' ' + n + phrase('問', n === 1 ? ' question' : ' questions');
+  }
+
+  function setMeta(set) {
+    const settings = set.settings || {};
+    const n = (set.questions || []).length;
+    const strokes = str(settings.strokeText).replace(/\s/g, '').length;
+    const when = new Date(set.savedAt || 0);
+    const day = when.getFullYear() + '-' + String(when.getMonth() + 1).padStart(2, '0') + '-' + String(when.getDate()).padStart(2, '0');
+    if (!n && strokes) return phrase('筆順 ' + strokes + '字', 'Strokes ' + strokes) + ' · ' + day;
+    return phrase(n + '問', n === 1 ? '1 question' : n + ' questions') + ' · ' + day;
+  }
+
+  function updateStorageLine(failed) {
+    const node = el.storageUsage;
+    if (!node) return;
+    let chars = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (!key || key.indexOf('kanji-test-maker') !== 0) continue;
+        chars += key.length + String(localStorage.getItem(key) || '').length;
+      }
+    } catch (error) { chars = 0; }
+    const kb = chars ? Math.max(1, Math.round(chars * 2 / 1024)) : 0;
+    node.textContent = phrase('この端末に置いてある分：約 ' + kb + ' KB', 'Stored on this device: about ' + kb + ' KB');
+    node.classList.toggle('is-warn', !!failed);
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then((est) => {
+        if (!est || !est.quota || !est.usage || est.usage / est.quota < 0.85) return;
+        node.textContent += phrase('（残りが少なくなっています）', ' (space is getting low)');
+        node.classList.add('is-warn');
+      }).catch(() => {});
     }
   }
 
   function renderSets() {
     const list = readSets();
+    if (el.setName && document.activeElement !== el.setName) el.setName.placeholder = suggestSetName();
     el.setList.innerHTML = list.length ? list.map((set) => {
-      const d = new Date(set.savedAt || 0);
-      return '<div class="set-item" data-set-id="' + esc(set.id) + '"><div class="set-info"><strong>' + esc(set.name) + '</strong>' +
-        '<span>' + (set.questions || []).length + '問／' + (d.getMonth() + 1) + '月' + d.getDate() + '日</span></div>' +
-        '<button type="button" class="soft-btn" data-set-action="load">呼び出す</button>' +
-        '<button type="button" class="inline-action danger" data-set-action="delete">消す</button></div>';
-    }).join('') : '<p class="hint">まだ保存したセットはありません。</p>';
+      const id = esc(set.id);
+      const renaming = renamingId === set.id;
+      const body = renaming
+        ? '<div class="set-rename"><input class="text-input" type="text" maxlength="40" value="' + esc(set.name) + '" data-set-rename-input aria-label="' + esc(phrase('セットの名前', 'Name of the set')) + '">' +
+          '<button type="button" class="soft-btn" data-set-action="rename-save">' + esc(phrase('決定', 'Save name')) + '</button>' +
+          '<button type="button" class="inline-action" data-set-action="rename-cancel">' + esc(phrase('やめる', 'Cancel')) + '</button></div>'
+        : '<div class="set-actions">' +
+          '<button type="button" class="soft-btn" data-set-action="load">' + esc(phrase('開く', 'Open')) + '</button>' +
+          '<button type="button" class="soft-btn" data-set-action="print">' + esc(phrase('印刷', 'Print')) + '</button>' +
+          '<button type="button" class="inline-action" data-set-action="duplicate">' + esc(phrase('コピーして編集', 'Duplicate and edit')) + '</button>' +
+          '<button type="button" class="inline-action" data-set-action="rename">' + esc(phrase('名前', 'Rename')) + '</button>' +
+          '<button type="button" class="inline-action danger" data-set-action="delete">' + esc(phrase('消す', 'Delete')) + '</button></div>';
+      return '<div class="set-item" data-set-id="' + id + '"><div class="set-info"><strong>' + esc(set.name) + '</strong><span>' +
+        esc(setMeta(set)) + '</span></div>' + body + '</div>';
+    }).join('') : '<p class="hint">' + esc(phrase('まだ保存した問題はありません。', 'No saved tests yet.')) + '</p>';
+    updateStorageLine(false);
+  }
+
+  function currentSetSnapshot(name, id) {
+    const settings = {};
+    SET_SETTING_KEYS.forEach((key) => { settings[key] = state[key]; });
+    settings.gen = {
+      range: state.gen.range,
+      count: state.gen.count,
+      types: (state.gen.types || []).slice(),
+      counts: Object.assign({}, state.gen.counts),
+      countsDirty: !!state.gen.countsDirty,
+      replace: state.gen.replace !== false,
+      avoidRecent: !!state.gen.avoidRecent
+    };
+    return {
+      id: id || uid(),
+      name: name,
+      savedAt: Date.now(),
+      questions: state.questions.map((q) => Object.assign({}, q)),
+      settings: settings
+    };
   }
 
   function saveSet() {
-    const name = el.setName.value.trim();
-    if (!name) { toast('セットの名前を入れてください（例：小3 第5回 A）', 'warn'); el.setName.focus(); return; }
-    if (!state.questions.length) { toast('問題がありません。先に問題を作ってください。', 'warn'); return; }
+    const typed = el.setName.value.trim();
+    const name = typed || suggestSetName();
+    const strokes = strokeCountNow();
+    if (!state.questions.length && !strokes) {
+      toast(phrase('問題がありません。先にテストを作るか、筆順の漢字を入れてください。', 'Nothing to save yet. Make a test, or enter kanji for stroke order.'), 'warn');
+      return;
+    }
     const list = readSets();
-    const settings = {};
-    SET_SETTINGS.forEach((k) => { settings[k] = state[k]; });
-    const snap = { id: uid(), name, savedAt: Date.now(), questions: state.questions.map((q) => Object.assign({}, q)), settings };
+    const snap = currentSetSnapshot(name);
     const i = list.findIndex((s) => s.name === name);
     if (i >= 0) {
-      if (!window.confirm('「' + name + '」はすでに保存されています。上書きしますか？')) return;
+      if (!window.confirm(phrase('「' + name + '」はすでにあります。上書きしますか？', '“' + name + '” is already saved. Replace it?'))) return;
       snap.id = list[i].id;
       list[i] = snap;
     } else {
       list.unshift(snap);
     }
     if (writeSets(list)) {
+      el.setName.value = '';
       renderSets();
-      toast('「' + name + '」を保存しました（' + state.questions.length + '問）');
+      const detail = state.questions.length
+        ? phrase(state.questions.length + '問', state.questions.length === 1 ? '1 question' : state.questions.length + ' questions')
+        : phrase('筆順 ' + strokes + '字', 'Strokes ' + strokes);
+      toast(phrase('「' + name + '」を保存しました（' + detail + '）', 'Saved “' + name + '” (' + detail + ')'));
     }
   }
 
-  function loadSet(id) {
-    const set = readSets().find((s) => s.id === id);
-    if (!set) return;
-    const before = { questions: state.questions.slice(), settings: {} };
-    SET_SETTINGS.forEach((k) => { before.settings[k] = state[k]; });
-    state.questions = (set.questions || []).map(normalizeQuestion);
-    Object.keys(set.settings || {}).forEach((k) => { if (SET_SETTINGS.includes(k)) state[k] = set.settings[k]; });
+  function applySet(set) {
+    const settings = Object.assign({}, set.settings || {});
+    const patch = { questions: set.questions || [] };
+    Object.keys(settings).forEach((key) => { patch[key] = settings[key]; });
+    applyStored(patch);
+    if (!settings.gen && state.questions.length) {
+      const types = [];
+      state.questions.forEach((q) => { if (q.type && types.indexOf(q.type) < 0) types.push(q.type); });
+      if (types.length) {
+        state.gen.types = types;
+        resetCounts();
+      }
+    }
     ui.openId = null;
+    if (state.sheetMode === 'stroke' || (!state.questions.length && str(state.strokeText))) {
+      state.sheetMode = 'stroke';
+      state.openTool = 'stroke';
+    }
     syncControls();
     afterQuestionsChanged();
-    toast('「' + set.name + '」を呼び出しました（' + state.questions.length + '問）', '', {
-      label: '元に戻す', run: () => {
-        state.questions = before.questions;
-        Object.assign(state, before.settings);
-        syncControls();
-        afterQuestionsChanged();
-      }
-    });
+  }
+
+  function loadSet(id, opts) {
+    const set = readSets().find((s) => s.id === id);
+    if (!set) return;
+    opts = opts || {};
+    const beforeQuestions = state.questions.slice();
+    const before = {};
+    SET_SETTING_KEYS.forEach((key) => { before[key] = state[key]; });
+    before.gen = JSON.parse(JSON.stringify(state.gen));
+    applySet(set);
+    const undo = () => {
+      state.questions = beforeQuestions;
+      Object.keys(before).forEach((key) => { if (key !== 'gen') state[key] = before[key]; });
+      state.gen = before.gen;
+      syncControls();
+      afterQuestionsChanged();
+    };
+    if (!opts.silent) {
+      toast(phrase('「' + set.name + '」を開きました', 'Opened “' + set.name + '”'), '', {
+        label: phrase('元に戻す', 'Undo'), run: undo
+      });
+    }
+    if (opts.print) {
+      const start = Date.now();
+      const tick = () => {
+        if (state.sheetMode !== 'stroke' || el.paperHost.dataset.strokeReady === '1' || Date.now() - start > 8000) doPrint();
+        else setTimeout(tick, 60);
+      };
+      tick();
+    }
+  }
+
+  function duplicateSet(id) {
+    const list = readSets();
+    const set = list.find((s) => s.id === id);
+    if (!set) return;
+    const copy = JSON.parse(JSON.stringify(set));
+    copy.id = uid();
+    copy.savedAt = Date.now();
+    copy.name = phrase(set.name + ' のコピー', 'Copy of ' + set.name).slice(0, 40);
+    list.unshift(copy);
+    if (!writeSets(list)) return;
+    renamingId = null;
+    renderSets();
+    loadSet(copy.id, { silent: true });
+    toast(phrase('コピーを作りました。問題の種類はそのままです。直してから、もう一度保存できます。',
+      'A copy is ready. The question types are unchanged. Edit it, then save again.'));
+  }
+
+  function renameSet(id, name) {
+    const next = str(name).trim();
+    if (!next) return;
+    const list = readSets();
+    const set = list.find((s) => s.id === id);
+    if (!set) return;
+    set.name = next.slice(0, 40);
+    set.savedAt = Date.now();
+    if (writeSets(list)) {
+      renamingId = null;
+      renderSets();
+    }
   }
 
   function deleteSet(id) {
     const list = readSets();
     const set = list.find((s) => s.id === id);
-    if (!set || !window.confirm('保存したセット「' + set.name + '」を消します。よろしいですか？')) return;
+    if (!set || !window.confirm(phrase('「' + set.name + '」を消します。よろしいですか？', 'Delete “' + set.name + '”?'))) return;
+    if (renamingId === id) renamingId = null;
     if (writeSets(list.filter((s) => s.id !== id))) renderSets();
+  }
+
+  function normalizeIncomingSet(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const questions = Array.isArray(raw.questions) ? raw.questions.map(normalizeQuestion) : [];
+    const settings = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
+    if (!questions.length && !str(settings.strokeText)) return null;
+    return {
+      id: str(raw.id) || uid(),
+      name: str(raw.name).slice(0, 40) || phrase('無題', 'Untitled'),
+      savedAt: Number(raw.savedAt) || Date.now(),
+      questions: questions,
+      settings: settings
+    };
   }
 
   // ---- 保存・読み込み（ファイル） ---------------------------------------------
 
-  /** 問題と設定を JSON ファイルにして書き出す（別の端末へ移すため） */
-  function exportFile() {
-    const data = { app: 'kanji-test-maker', version: 2, exportedAt: new Date().toISOString(), state };
+  function downloadJson(data, filename) {
     const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'kanji-test-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.json';
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    toast('ファイルに書き出しました（' + state.questions.length + '問）');
+  }
+
+  function fileStamp() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate());
+  }
+
+  /** いま開いている問題と設定を JSON ファイルにする（以前からの書き出し） */
+  function exportFile() {
+    const data = { app: 'kanji-test-maker', version: 2, exportedAt: new Date().toISOString(), state };
+    downloadJson(data, 'kanji-test-' + fileStamp() + '.json');
+    toast(phrase('ファイルに書き出しました（' + state.questions.length + '問）', 'Exported a file (' + state.questions.length + (state.questions.length === 1 ? ' question' : ' questions') + ')'));
+  }
+
+  function exportSets() {
+    const sets = readSets();
+    if (!sets.length) {
+      toast(phrase('書き出す問題がまだありません。', 'There is no saved list to export yet.'), 'warn');
+      return;
+    }
+    downloadJson({ app: 'kanji-test-maker', version: 3, kind: 'sets', exportedAt: new Date().toISOString(), sets: sets },
+      'kanji-saved-tests-' + fileStamp() + '.json');
+    toast(phrase('保存した一覧を書き出しました（' + sets.length + '件）', 'Exported the saved list (' + sets.length + ')'));
+  }
+
+  function importSetsData(data) {
+    const incoming = Array.isArray(data) ? data : (data && data.sets);
+    if (!Array.isArray(incoming)) throw new Error(phrase('保存した一覧のファイルではありません', 'This is not a saved-list file'));
+    const clean = incoming.map(normalizeIncomingSet).filter(Boolean);
+    if (!clean.length) throw new Error(phrase('読み込める問題がありませんでした', 'The file had no tests to import'));
+    if (!window.confirm(phrase('保存した一覧に、ファイルの ' + clean.length + ' 件を足します。同じものは新しい方を残します。',
+      'Add ' + clean.length + ' from the file to the saved list. If one is already here, the newer copy is kept.'))) return;
+    const byId = new Map(readSets().map((set) => [set.id, set]));
+    clean.forEach((set) => {
+      const prev = byId.get(set.id);
+      if (!prev || (set.savedAt || 0) >= (prev.savedAt || 0)) byId.set(set.id, set);
+    });
+    const next = Array.from(byId.values()).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+    if (writeSets(next)) {
+      renderSets();
+      toast(phrase('一覧を読み込みました（' + next.length + '件）', 'Imported the list (' + next.length + ')'));
+    }
   }
 
   async function importFileFrom(file) {
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
+      if (data && (data.kind === 'sets' || (Array.isArray(data.sets) && !data.state))) {
+        importSetsData(data);
+        return;
+      }
       const source = data && data.state ? data.state : data;
-      if (!source || !Array.isArray(source.questions)) throw new Error('このアプリで書き出したファイルではありません');
-      if (!window.confirm('今ある問題と設定を、読み込むファイルの内容（' + source.questions.length + '問）に置き換えます。よろしいですか？')) return;
+      if (!source || !Array.isArray(source.questions)) throw new Error(phrase('このアプリで書き出したファイルではありません', 'This file was not exported from this app'));
+      if (!window.confirm(phrase('今ある問題と設定を、読み込むファイルの内容（' + source.questions.length + '問）に置き換えます。よろしいですか？',
+        'Replace the open test with this file (' + source.questions.length + ' questions)?'))) return;
       Object.assign(state, defaultState());
       applyStored(source);
       ui.openId = null;
@@ -3129,11 +3346,47 @@
       renderList();
       renderPaper();
       persist();
-      toast('読み込みました（' + state.questions.length + '問）');
+      toast(phrase('読み込みました（' + state.questions.length + '問）', 'Imported (' + state.questions.length + (state.questions.length === 1 ? ' question' : ' questions') + ')'));
     } catch (error) {
-      const message = error instanceof SyntaxError ? 'ファイルの中身を読み取れませんでした。このアプリで書き出したファイルを選んでください。' : error.message;
-      toast('読み込めませんでした：' + message, 'warn');
+      const message = error instanceof SyntaxError
+        ? phrase('ファイルの中身を読み取れませんでした。このアプリで書き出したファイルを選んでください。', 'The file could not be read. Choose a file exported from this app.')
+        : error.message;
+      toast(phrase('読み込めませんでした：', 'Could not import: ') + message, 'warn');
     }
+  }
+
+  function registerApp() {
+    const notice = $('updateNotice');
+    const button = $('updateBtn');
+    if (!('serviceWorker' in navigator) || !notice || !button) return;
+    const showUpdate = () => { notice.hidden = false; };
+    let allowReload = false;
+    button.addEventListener('click', () => {
+      allowReload = true;
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (reg && reg.waiting) reg.waiting.postMessage('skip-waiting');
+      });
+    });
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!allowReload || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+    const start = () => {
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdate();
+        reg.addEventListener('updatefound', () => {
+          const worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdate();
+          });
+        });
+      }).catch(() => {});
+    };
+    if (document.readyState === 'complete') start();
+    else window.addEventListener('load', start);
   }
 
   // ---- 書体 -----------------------------------------------------------------
@@ -3334,9 +3587,19 @@
       const button = event.target.closest('[data-set-action]');
       const item = event.target.closest('[data-set-id]');
       if (!button || !item) return;
-      if (button.dataset.setAction === 'load') loadSet(item.dataset.setId);
-      else deleteSet(item.dataset.setId);
+      const id = item.dataset.setId;
+      const action = button.dataset.setAction;
+      if (action === 'load') loadSet(id);
+      else if (action === 'print') loadSet(id, { silent: true, print: true });
+      else if (action === 'duplicate') duplicateSet(id);
+      else if (action === 'delete') deleteSet(id);
+      else if (action === 'rename') { renamingId = id; renderSets(); const input = el.setList.querySelector('[data-set-rename-input]'); if (input) input.focus(); }
+      else if (action === 'rename-cancel') { renamingId = null; renderSets(); }
+      else if (action === 'rename-save') renameSet(id, (item.querySelector('[data-set-rename-input]') || {}).value || '');
     });
+    $('exportSetsBtn').addEventListener('click', exportSets);
+    $('importSetsBtn').addEventListener('click', () => el.importSetsFile.click());
+    el.importSetsFile.addEventListener('change', () => { importFileFrom(el.importSetsFile.files && el.importSetsFile.files[0]); el.importSetsFile.value = ''; });
     // 用紙が空のときに出る見本ボタン（テスト用紙の見本／筆順練習プリントの見本）
     el.paperHost.addEventListener('click', (event) => {
       if (event.target.closest('.stroke-sample-btn')) loadStrokeSample();
@@ -3396,7 +3659,7 @@
     [
       'saveState', 'printBtn', 'workspace', 'toast', 'inlineNotice', 'listCount', 'tabCount', 'questionList', 'paperHost', 'printArea', 'pageStyle',
       'sheetViewport', 'gradeRange', 'genReplace', 'avoidRecent', 'typePills', 'typeCounts', 'drawStatus', 'printFormat', 'gradeFormatSelect', 'zoomFit', 'zoomLabel',
-      'sheetInfo', 'importFile', 'historyCount', 'listNotice', 'setName', 'setList',
+      'sheetInfo', 'importFile', 'importSetsFile', 'historyCount', 'listNotice', 'setName', 'setList', 'storageUsage',
       'ocrProvider', 'ocrVertical', 'ocrText', 'ocrStatus', 'ocrThumb', 'ocrFile', 'ocrCamera', 'ocrCameraBtn', 'ocrPickBtn', 'ocrType',
       'aiInput', 'aiTheme', 'aiType', 'aiPromptText', 'bulkText', 'bulkType',
       'customType', 'customStyle', 'customKanji', 'customReading', 'customSentence', 'customAnswer',
@@ -3497,6 +3760,7 @@
 
     detectKyokasho();
     renderSets();
+    registerApp();
     try { history.replaceState({ view: state.view }, ''); } catch (error) { /* 何もしない */ }
     renderList();
     renderPaper();
