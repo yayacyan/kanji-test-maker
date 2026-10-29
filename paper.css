@@ -39,12 +39,24 @@
   letter-spacing: 0.1em;
 }
 .paper-count { font-size: 4.2mm; color: #444; }
-.paper-fields { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 1.5mm 8mm; margin-left: auto; font-size: 4.6mm; }
+.paper-fields { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 1.5mm 6mm; margin-left: auto; font-size: 4.2mm; max-width: 100%; }
 .paper-sub { font-size: 4.4mm; color: #333; }
-.of-total { margin-left: 1mm; font-size: 4.2mm; }
-.paper-fields .field { display: inline-flex; align-items: baseline; gap: 1.5mm; }
-.fill { display: inline-block; width: 46mm; border-bottom: 0.3mm solid #111; }
-.fill.short { width: 22mm; }
+.of-total { margin-left: 1mm; font-size: 4.2mm; white-space: nowrap; }
+.paper-fields .field { display: inline-flex; align-items: baseline; gap: 1.2mm; white-space: nowrap; }
+.fill { display: inline-block; width: 40mm; border-bottom: 0.3mm solid #111; }
+.fill.short { width: 18mm; }
+.paper.lang-en .paper-title { letter-spacing: 0.02em; font-size: 5.4mm; }
+.paper.lang-en .paper-fields {
+  flex-basis: 100%;
+  justify-content: flex-end;
+  margin-left: 0;
+  flex-wrap: nowrap;
+  font-size: 3.8mm;
+  gap: 1.2mm 4mm;
+}
+.paper.lang-en .fill { width: 26mm; }
+.paper.lang-en .fill.short { width: 18mm; }
+.paper.lang-en .stamp { letter-spacing: 0.04em; font-size: 4mm; margin-left: 2mm; }
 
 .paper-ins {
   display: flex;

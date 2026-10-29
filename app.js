@@ -238,9 +238,22 @@
   // ---- 通知 -----------------------------------------------------------------
 
   let toastTimer;
+  function wideScreen() {
+    return window.matchMedia('(min-width: 1000px)').matches;
+  }
   /** action があると、メッセージの横にボタンが付く（例：「プレビューを見る」） */
   function toast(message, kind, action) {
-    el.toast.textContent = message;
+    clearTimeout(toastTimer);
+    if (wideScreen()) {
+      // デスクトップでは黒い案内を浮かべない。左の文章の上に重なるため。
+      // 開いている欄の先頭に、文章として足して、下の文字を押し下げる。
+      el.toast.hidden = true;
+      showInlineNotice(message, kind, action);
+      return;
+    }
+    if (el.inlineNotice) el.inlineNotice.hidden = true;
+    el.toast.replaceChildren();
+    el.toast.append(document.createTextNode(message));
     if (action) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -252,8 +265,27 @@
     el.toast.className = 'toast' + (kind ? ' is-' + kind : '');
     el.toast.title = 'タップで消えます';
     el.toast.hidden = false;
-    clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { el.toast.hidden = true; }, action ? 7000 : 4000);
+  }
+  function showInlineNotice(message, kind, action) {
+    const host = document.querySelector('details.tool[open] .tool-body') || document.getElementById('paneEdit');
+    const note = el.inlineNotice;
+    if (!host || !note) return;
+    host.insertBefore(note, host.firstChild);
+    note.replaceChildren();
+    note.className = 'inline-notice' + (kind ? ' is-' + kind : '');
+    note.append(document.createTextNode(message));
+    if (action) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'soft-btn';
+      button.textContent = action.label;
+      button.addEventListener('click', (event) => { event.stopPropagation(); note.hidden = true; action.run(); });
+      note.appendChild(button);
+    }
+    note.hidden = false;
+    note.scrollIntoView({ block: 'nearest' });
+    toastTimer = setTimeout(() => { note.hidden = true; }, action ? 7000 : 4000);
   }
 
   // ---- 問題を作る（学年から選ぶ） ---------------------------------------------
@@ -475,10 +507,13 @@
       (recentHits ? phrase(' 以前に出した漢字を' + recentHits + '字さけきれませんでした（「くわしい設定」で記録を消せます）。',
         ' Could not avoid ' + recentHits + ' kanji used before (clear the record under More settings).') : '');
     afterQuestionsChanged();
-    toast(phrase(drawn.length + '問を作りました（合計 ' + state.questions.length + '問）',
-      'Made ' + drawn.length + ' questions (' + state.questions.length + ' total)'), '', {
-      label: phrase('プレビューを見る', 'See the preview'), run: () => setView('preview')
-    });
+    // 広い画面ではプレビューが最初から横にある。案内はボタンの下の文だけにする。
+    if (!wideScreen()) {
+      toast(phrase(drawn.length + '問を作りました（合計 ' + state.questions.length + '問）',
+        'Made ' + drawn.length + ' questions (' + state.questions.length + ' total)'), '', {
+        label: phrase('プレビューを見る', 'See the preview'), run: () => setView('preview')
+      });
+    }
   }
 
   // ---- 問題の操作 -----------------------------------------------------------
@@ -599,6 +634,11 @@
   function formatChoiceMap() {
     const labels = {};
     FORMAT_ORDER.forEach((id) => { labels[id] = I18n.formatChoice(id); });
+    return labels;
+  }
+  function formatShortMap() {
+    const labels = {};
+    FORMAT_ORDER.forEach((id) => { labels[id] = I18n.formatShort(id); });
     return labels;
   }
 
@@ -1442,7 +1482,7 @@
       ? phrase(n + '問（全' + pageMeta.total + '問）', n + ' of ' + pageMeta.total)
       : phrase(n + '問', n + (n === 1 ? ' question' : ' questions'));
 
-    return '<div class="paper ' + (answerMode ? 'is-answer' : 'is-question') + '" style="' +
+    return '<div class="paper ' + (answerMode ? 'is-answer' : 'is-question') + (uiLang() === 'en' ? ' lang-en' : '') + '" style="' +
       paperBoxStyle(lay.fmt) + '--f:' + lay.cellF.toFixed(2) + 'mm;--tf:' + lay.f.toFixed(2) + 'mm;--cols:' + lay.cols + ';--head:' + headHeight() + 'mm;' +
       'font-family:' + FONT_STACKS[state.font] + '">' +
       '<div class="paper-head">' +
@@ -2224,7 +2264,7 @@
     const body = empty
       ? '<div class="paper-empty">' + empty + '</div>'
       : list.map(strokeEntryHtml).join('');
-    return '<div class="paper paper-stroke" style="' +
+    return '<div class="paper paper-stroke' + (uiLang() === 'en' ? ' lang-en' : '') + '" style="' +
       paperBoxStyle(fmt) + '--f:4mm;--tf:4mm;--head:14mm;' +
       '--sg:' + g.sg + 'mm;--smeta:' + g.smeta + 'mm;--sc:' + g.sc.toFixed(2) + 'mm;--sgap:' + g.gapc + 'mm;' +
       'font-family:' + FONT_STACKS[state.font] + '">' +
@@ -2825,9 +2865,9 @@
   const TYPE_INFO = {
     auto: { desc: '文を見て自動で選ぶ', thumb: '<span class="tv-word">自動</span>' },
     kaki: { desc: 'ひらがなを漢字で書く', short: 'ひらがな→漢字',
-      thumb: (st) => '<span class="tv-t">くもの<i class="tv-u">す</i></span>' + sideMark(st) },
+      thumb: (st) => '<span class="tv-t"><i class="tv-u">す</i></span>' + sideMark(st) },
     yomi: { desc: '漢字の読みを書く', short: '漢字→ひらがな',
-      thumb: (st) => '<span class="tv-t">くもの<i class="tv-u">巣</i></span>' + sideMark(st) },
+      thumb: (st) => '<span class="tv-t"><i class="tv-u">巣</i></span>' + sideMark(st) },
     sentence: { desc: '□に入る漢字を書く', short: '□に漢字を書く',
       thumb: '<span class="tv-t">花の<i class="tv-b"></i>が</span>' },
     okuri: { desc: '漢字のあとに続くひらがなを書く（「借りる」の「りる」）', short: '「借りる」の「りる」',
@@ -2837,7 +2877,7 @@
     trace: { desc: 'うすい字をなぞる', short: 'うすい字をなぞる',
       thumb: '<span class="tv-t"><i class="tv-b tv-g">巣</i><i class="tv-b tv-g">巣</i><i class="tv-b"></i></span>' },
     free: { desc: '問題文を、そのまま出す', short: '問題文のまま',
-      thumb: (st) => '<span class="tv-t">問題文</span>' + sideMark(st === 'kakko' ? 'kakko' : 'line', true) }
+      thumb: (st) => '<span class="tv-t">文</span>' + sideMark(st === 'kakko' ? 'kakko' : 'line', false) }
   };
 
   function typeThumb(value, style) {
@@ -3354,7 +3394,7 @@
 
   function cacheElements() {
     [
-      'saveState', 'printBtn', 'workspace', 'toast', 'listCount', 'tabCount', 'questionList', 'paperHost', 'printArea', 'pageStyle',
+      'saveState', 'printBtn', 'workspace', 'toast', 'inlineNotice', 'listCount', 'tabCount', 'questionList', 'paperHost', 'printArea', 'pageStyle',
       'sheetViewport', 'gradeRange', 'genReplace', 'avoidRecent', 'typePills', 'typeCounts', 'drawStatus', 'printFormat', 'gradeFormatSelect', 'zoomFit', 'zoomLabel',
       'sheetInfo', 'importFile', 'historyCount', 'listNotice', 'setName', 'setList',
       'ocrProvider', 'ocrVertical', 'ocrText', 'ocrStatus', 'ocrThumb', 'ocrFile', 'ocrCamera', 'ocrCameraBtn', 'ocrPickBtn', 'ocrType',
@@ -3388,11 +3428,15 @@
     });
     $('bulkTypeSelect').innerHTML = '<option value="">' + phrase('種類を選ぶ…', 'Choose a type…') + '</option>' +
       TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">' + phrase('すべて「' + TYPE_LABELS[t] + '」にする', 'Make all “' + I18n.typeLabel(t) + '”') + '</option>').join('');
-    [el.gradeFormatSelect, el.strokeFormatSelect, el.printFormat].forEach((sel) => {
+    [el.gradeFormatSelect, el.strokeFormatSelect].forEach((sel) => {
       if (!sel) return;
       fillSelect(sel, FORMAT_ORDER, formatChoiceMap());
       sel.value = state.format;
     });
+    if (el.printFormat) {
+      fillSelect(el.printFormat, FORMAT_ORDER, formatShortMap());
+      el.printFormat.value = state.format;
+    }
     renderTypePills();
     document.querySelectorAll('.type-picker').forEach((host) => { host.innerHTML = ''; buildTypePicker(host); });
     applyCustomHint();
@@ -3423,7 +3467,7 @@
     ['ocrType', 'aiType', 'bulkType'].forEach((id) => fillSelect(el[id], Object.keys(importTypes), importTypes));
     el.ocrProvider.innerHTML = Object.keys(KI.OCR_PROVIDERS).map((k) => '<option value="' + k + '">' + esc(KI.OCR_PROVIDERS[k].label) + '</option>').join('');
     fillSelect(el.strokeFormatSelect, FORMAT_ORDER, formatChoiceMap());
-    fillSelect(el.printFormat, FORMAT_ORDER, formatChoiceMap());
+    fillSelect(el.printFormat, FORMAT_ORDER, formatShortMap());
     renderTypePills();
     document.querySelectorAll('.type-picker').forEach(buildTypePicker);
 

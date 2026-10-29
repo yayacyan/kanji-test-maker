@@ -149,22 +149,24 @@ try {
       const layout = await page.evaluate(() => {
         const papers = [...document.querySelectorAll('#printArea .paper')];
         const nums = papers.map((p) => [...p.querySelectorAll('.q-no')].map((el) => Number(el.textContent)));
-        const toast = document.getElementById('toast').getBoundingClientRect();
-        const preview = document.querySelector('.pane-preview').getBoundingClientRect();
-        const overlap = !(toast.right < preview.left || toast.left > preview.right || toast.bottom < preview.top || toast.top > preview.bottom);
         return {
           pages: papers.length,
           counts: nums.map((a) => a.length),
           first: nums.map((a) => a[0]),
           info: document.getElementById('sheetInfo').textContent,
           toastHidden: document.getElementById('toast').hidden,
-          overlap
+          status: document.getElementById('drawStatus').textContent
         };
       });
       if (n === 15) {
         record('15 questions stay on one page', layout.pages === 1, JSON.stringify(layout.counts));
-        record('toast does not cover the preview', layout.toastHidden === false && layout.overlap === false, 'overlap=' + layout.overlap);
+        record('desktop uses the status under the button, not a floating toast', layout.toastHidden === true && layout.status.includes('作りました'), layout.status.slice(0, 80));
+        await page.setViewportSize({ width: 1024, height: 900 });
+        await page.evaluate(() => document.querySelector('.size-hint').scrollIntoView({ block: 'start' }));
+        const covered = await page.evaluate(noticeHits);
+        record('notice covers no visible text', covered.length === 0, covered.join(' | ') || 'none');
         await page.screenshot({ path: path.join(SHOT, 'toast_not_over_preview.png') });
+        await page.setViewportSize({ width: 1400, height: 900 });
       }
       if (n === 50) {
         const flat = layout.first;
@@ -176,9 +178,16 @@ try {
       }
       if (n === 10) record('10 questions stay on one page', layout.pages === 1, JSON.stringify(layout.counts));
     }
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.click('#viewTabs [data-view="edit"]');
+    await page.click('#generateBtn');
+    await page.waitForFunction(() => document.getElementById('toast') && !document.getElementById('toast').hidden);
+    const phoneHits = await page.evaluate(noticeHits);
+    record('phone toast covers no visible text', phoneHits.length === 0, phoneHits.join(' | ') || 'none');
     await page.waitForTimeout(7500);
     const gone = await page.evaluate(() => document.getElementById('toast').hidden);
     record('toast auto-dismisses', gone === true, String(gone));
+    await page.setViewportSize({ width: 1400, height: 900 });
 
     await page.click('#sheetSeg [data-sheet="answer"]');
     await page.waitForTimeout(400);
@@ -195,12 +204,225 @@ try {
       brand: document.querySelector('.paper-brand')?.textContent,
       stamp: document.querySelector('.stamp')?.textContent,
       name: document.querySelector('.paper-fields')?.textContent || '',
-      make: document.getElementById('generateBtn').textContent
+      make: document.getElementById('generateBtn').textContent,
+      paperClass: document.querySelector('#paperHost .paper')?.className || ''
     }));
-    record('English sheet chrome', enSheet.brand === 'Kanji Test Maker' && enSheet.stamp === 'Answers' && enSheet.make === 'Make questions', JSON.stringify(enSheet));
+    record('English sheet chrome', enSheet.brand === 'Kanji Test Maker' && enSheet.stamp === 'Answers' && enSheet.make === 'Make questions' && /\blang-en\b/.test(enSheet.paperClass || ''), JSON.stringify(enSheet));
     await page.screenshot({ path: path.join(SHOT, 'english_answer_sheet.png') });
     await ctx.close();
   }
+
+  function noticeHits() {
+    function clipped(el) {
+      const cs = getComputedStyle(el);
+      return /(auto|scroll|hidden|clip)/.test(cs.overflow + cs.overflowY + cs.overflowX);
+    }
+    function visiblePart(rect, el) {
+      let box = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+      let node = el;
+      while (node && node !== document.documentElement) {
+        if (clipped(node)) {
+          const c = node.getBoundingClientRect();
+          box = {
+            left: Math.max(box.left, c.left),
+            top: Math.max(box.top, c.top),
+            right: Math.min(box.right, c.right),
+            bottom: Math.min(box.bottom, c.bottom)
+          };
+        }
+        node = node.parentElement;
+      }
+      box.left = Math.max(box.left, 0);
+      box.top = Math.max(box.top, 0);
+      box.right = Math.min(box.right, window.innerWidth);
+      box.bottom = Math.min(box.bottom, window.innerHeight);
+      if (box.right - box.left < 1 || box.bottom - box.top < 1) return null;
+      return box;
+    }
+    const layers = [];
+    ['toast', 'inlineNotice'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el || el.hidden) return;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return;
+      const t = el.getBoundingClientRect();
+      if (t.width < 2 || t.height < 2) return;
+      layers.push(t);
+    });
+    if (!layers.length) return [];
+    const hits = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let textNode;
+    while ((textNode = walker.nextNode())) {
+      const raw = textNode.textContent.replace(/\s+/g, ' ').trim();
+      if (raw.length < 2) continue;
+      const parent = textNode.parentElement;
+      if (!parent || parent.closest('#toast, #inlineNotice, .sr-only, [hidden]')) continue;
+      const pcs = getComputedStyle(parent);
+      if (pcs.display === 'none' || pcs.visibility === 'hidden' || Number(pcs.opacity) === 0) continue;
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      for (const r of range.getClientRects()) {
+        const vis = visiblePart(r, parent);
+        if (!vis) continue;
+        for (const t of layers) {
+          const overlap = !(t.right <= vis.left + 0.5 || t.left >= vis.right - 0.5 || t.bottom <= vis.top + 0.5 || t.top >= vis.bottom - 0.5);
+          if (overlap) hits.push(raw.slice(0, 42));
+        }
+      }
+    }
+    return [...new Set(hits)].slice(0, 8);
+  }
+
+  function layoutProblems() {
+    const problems = [];
+    const doc = document.documentElement;
+    if (doc.scrollWidth > doc.clientWidth + 2) problems.push('page-hscroll');
+    const name = document.querySelector('.brand-name');
+    const actions = document.querySelector('.header-actions');
+    if (name && actions && name.offsetParent && actions.offsetParent) {
+      const nr = document.querySelector('.brand-block').getBoundingClientRect();
+      const ar = actions.getBoundingClientRect();
+      const separated = ar.left >= nr.right - 1 || ar.top >= nr.bottom - 1;
+      if (!separated) problems.push('header-overlap');
+    }
+    const langBtn = document.querySelector('[data-set-lang="ja"]');
+    if (langBtn && langBtn.offsetParent && langBtn.getBoundingClientRect().height > 44) problems.push('lang-wrap');
+    document.querySelectorAll('.hero-line').forEach((el) => {
+      if (!el.offsetParent) return;
+      const line = parseFloat(getComputedStyle(el).lineHeight) || 24;
+      if (el.getBoundingClientRect().height > line * 1.7) problems.push('hero-wrap');
+    });
+    document.querySelectorAll('.save-state').forEach((el) => {
+      if (!el.offsetParent) return;
+      if (el.scrollWidth > el.clientWidth + 2 || el.getBoundingClientRect().height > 40) problems.push('save-badge');
+    });
+    document.querySelectorAll('#typePills .tv').forEach((tv) => {
+      const box = tv.getBoundingClientRect();
+      if (box.width < 2) return;
+      const type = tv.closest('[data-type]')?.getAttribute('data-type') || '?';
+      tv.querySelectorAll('*').forEach((child) => {
+        const r = child.getBoundingClientRect();
+        if (r.width < 0.5 || r.height < 0.5) return;
+        if (r.left < box.left - 1 || r.right > box.right + 1 || r.top < box.top - 1 || r.bottom > box.bottom + 1) problems.push('icon-' + type);
+      });
+    });
+    const bar = document.querySelector('.preview-bar');
+    if (bar && window.innerWidth >= 1000 && bar.getBoundingClientRect().width > 40) {
+      if (bar.scrollWidth > bar.clientWidth + 2) problems.push('bar-overflow');
+      if (bar.getBoundingClientRect().height > 64) problems.push('bar-tall');
+    }
+    const countBtns = [...document.querySelectorAll('#countPills .pill-btn')].filter((b) => b.offsetParent);
+    if (countBtns.length >= 5) {
+      const tops = countBtns.map((b) => b.getBoundingClientRect().top);
+      if (Math.max(...tops) - Math.min(...tops) > 6) problems.push('count-wrap');
+    }
+    document.querySelectorAll('#paperHost .paper').forEach((paper) => {
+      const pb = paper.getBoundingClientRect();
+      if (pb.width < 30) return;
+      if (document.documentElement.lang === 'en' && !paper.classList.contains('lang-en')) problems.push('missing-lang-en');
+      const fields = [...paper.querySelectorAll('.paper-fields .field')];
+      fields.forEach((field) => {
+        const r = field.getBoundingClientRect();
+        if (r.width < 2) return;
+        if (r.right > pb.right + 1.5 || r.left < pb.left - 1.5) problems.push('field-clip');
+      });
+      for (let a = 0; a < fields.length; a += 1) {
+        const ra = fields[a].getBoundingClientRect();
+        for (let b = a + 1; b < fields.length; b += 1) {
+          const rb = fields[b].getBoundingClientRect();
+          const ov = ra.width > 2 && rb.width > 2 && !(ra.right < rb.left + 0.5 || ra.left > rb.right - 0.5 || ra.bottom < rb.top + 0.5 || ra.top > rb.bottom - 0.5);
+          if (ov) problems.push('field-overlap');
+        }
+      }
+      let outside = 0;
+      paper.querySelectorAll('.q').forEach((q) => {
+        const qr = q.getBoundingClientRect();
+        q.querySelectorAll('.box, .cell, .q-ans, .q-main').forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width < 1) return;
+          if (r.left < qr.left - 2 || r.right > qr.right + 2 || r.top < qr.top - 2 || r.bottom > qr.bottom + 2) outside += 1;
+        });
+      });
+      if (outside) problems.push('q-outside-' + outside);
+    });
+    return [...new Set(problems)];
+  }
+
+  async function layoutSweep(engineBrowser, engine) {
+    for (const lang of ['ja', 'en']) {
+      const ctx = await engineBrowser.newContext({
+        locale: lang === 'ja' ? 'ja-JP' : 'en-US',
+        viewport: { width: 1280, height: 900 }
+      });
+      await ctx.addInitScript((saved, langKey) => {
+        localStorage.setItem('kanji-test-maker-v2', JSON.stringify(saved));
+        localStorage.setItem('kanji-test-maker-lang', langKey);
+      }, {
+        format: lang === 'ja' ? 'A4-portrait' : 'Letter-portrait',
+        title: '漢字テスト',
+        showName: true, showScore: true, showClass: true, showDate: true, showInstructions: true,
+        pointsEach: '2',
+        strokeText: '水木日上花祭',
+        questions: banks[15],
+        view: 'edit'
+      }, lang);
+      const page = await ctx.newPage();
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#paperHost .paper', { timeout: 20000 });
+      await page.waitForSelector('#typePills .tv');
+      for (const w of [375, 768, 1024, 1280, 1440]) {
+        await page.setViewportSize({ width: w, height: w < 800 ? 812 : 900 });
+        await page.waitForTimeout(100);
+        if (w < 1000) await page.click('#viewTabs [data-view="edit"]');
+        if (w === 375) {
+          const phone = await page.evaluate(() => {
+            const sel = document.getElementById('gradeFormatSelect');
+            sel.scrollIntoView({ block: 'end' });
+            const nav = document.querySelector('.view-tabs').getBoundingClientRect();
+            const sr = sel.getBoundingClientRect();
+            const label = sel.parentElement.querySelector('.field-label').getBoundingClientRect();
+            const buttons = [...document.querySelectorAll('#countPills .pill-btn')].map((b) => b.getBoundingClientRect());
+            const tops = buttons.map((b) => b.top);
+            const scroller = document.scrollingElement;
+            scroller.scrollTop = scroller.scrollHeight;
+            const paneBottom = document.getElementById('paneEdit').getBoundingClientRect().bottom;
+            const navEnd = document.querySelector('.view-tabs').getBoundingClientRect().top;
+            return {
+              oneRow: tops.length === 5 && Math.max(...tops) - Math.min(...tops) <= 6,
+              selClear: sr.bottom <= nav.top + 1 && sr.top >= 0,
+              labelClear: label.bottom <= nav.top + 1 && label.top >= 0,
+              endClear: paneBottom <= navEnd + 1,
+              detail: [Math.round(sr.bottom), Math.round(nav.top), Math.round(label.top), Math.round(paneBottom), Math.round(navEnd)].join(',')
+            };
+          });
+          record(engine + ' phone counts ' + lang, phone.oneRow && phone.selClear && phone.labelClear && phone.endClear, JSON.stringify(phone));
+          if (engine === 'chromium' && lang === 'ja') {
+            await page.evaluate(() => document.getElementById('gradeFormatSelect').scrollIntoView({ block: 'end' }));
+            await page.screenshot({ path: path.join(SHOT, 'phone_ja_counts.png') });
+          }
+        }
+        const edit = await page.evaluate(layoutProblems);
+        const editHits = (await page.evaluate(noticeHits)).map((hit) => 'covers-text ' + hit);
+        if (w < 1000) await page.click('#viewTabs [data-view="preview"]');
+        await page.waitForTimeout(80);
+        const preview = await page.evaluate(layoutProblems);
+        const previewHits = (await page.evaluate(noticeHits)).map((hit) => 'covers-text ' + hit);
+        const probs = [...new Set([...edit, ...editHits, ...preview, ...previewHits])];
+        record(engine + ' layout ' + lang + ' ' + w, probs.length === 0, probs.join(', ') || 'ok');
+        if (w < 1000) await page.click('#viewTabs [data-view="edit"]');
+      }
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.click('#sheetSeg [data-sheet="stroke"]');
+      await page.waitForFunction(() => document.querySelector('#paperHost')?.dataset.strokeReady === '1', null, { timeout: 20000 });
+      await page.waitForTimeout(200);
+      const stroke = await page.evaluate(layoutProblems);
+      record(engine + ' stroke layout ' + lang, stroke.length === 0, stroke.join(', ') || 'ok');
+      await ctx.close();
+    }
+  }
+
+  await layoutSweep(browser, 'chromium');
 
   // --- print PDFs ---
   async function printCase(engineBrowser, engine, lang, format, questions, kind) {
@@ -302,6 +524,7 @@ try {
     }
     const stroke = await printCase(wk, 'webkit', 'en', 'Letter-portrait', [], 'stroke');
     record('webkit stroke ' + stroke.tag, stroke.dom.pages >= 1, 'pages=' + stroke.dom.pages);
+    await layoutSweep(wk, 'webkit');
     await wk.close();
   }
 
