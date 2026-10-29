@@ -1105,7 +1105,7 @@
         const kana = qs.length > 0 && qs.every((q) => Number(q.grade) >= 1 && Number(q.grade) <= 2);
         runs.slice(1).forEach((r) => {
           tags[r.start] = uiLang() === 'en'
-            ? ['Next', { kaki: 'Write', yomi: 'Read', sentence: 'Box', okuri: 'Ending', mas: 'Practice', trace: 'Trace' }[r.type]]
+            ? ['From here', { kaki: 'Writing', yomi: 'Reading', sentence: 'The box', okuri: 'Ending', mas: 'Practice', trace: 'Tracing' }[r.type]]
             : ['ここから', SECTION_LABELS[kana ? 'kana' : 'kanji'][r.type]];
         });
       }
@@ -3037,7 +3037,7 @@
         ? phrase('保存できませんでした。このブラウザの保存場所がいっぱいです。いらない問題を消すか、一覧をファイルに書き出してください。',
           'Could not save. This browser is out of space. Delete a saved test, or export the list to a file.')
         : phrase('保存できませんでした。', 'Could not save.'), 'warn');
-      updateStorageLine(true);
+      updateStorageLine();
       return false;
     }
   }
@@ -3068,7 +3068,7 @@
     return phrase(n + '問', n === 1 ? '1 question' : n + ' questions') + ' · ' + day;
   }
 
-  function updateStorageLine(failed) {
+  function updateStorageLine() {
     const node = el.storageUsage;
     if (!node) return;
     let chars = 0;
@@ -3081,14 +3081,7 @@
     } catch (error) { chars = 0; }
     const kb = chars ? Math.max(1, Math.round(chars * 2 / 1024)) : 0;
     node.textContent = phrase('この端末に置いてある分：約 ' + kb + ' KB', 'Stored on this device: about ' + kb + ' KB');
-    node.classList.toggle('is-warn', !!failed);
-    if (navigator.storage && navigator.storage.estimate) {
-      navigator.storage.estimate().then((est) => {
-        if (!est || !est.quota || !est.usage || est.usage / est.quota < 0.85) return;
-        node.textContent += phrase('（残りが少なくなっています）', ' (space is getting low)');
-        node.classList.add('is-warn');
-      }).catch(() => {});
-    }
+    node.classList.remove('is-warn');
   }
 
   function renderSets() {
@@ -3102,15 +3095,19 @@
           '<button type="button" class="soft-btn" data-set-action="rename-save">' + esc(phrase('決定', 'Save name')) + '</button>' +
           '<button type="button" class="inline-action" data-set-action="rename-cancel">' + esc(phrase('やめる', 'Cancel')) + '</button></div>'
         : '<div class="set-actions">' +
-          '<button type="button" class="soft-btn" data-set-action="load">' + esc(phrase('開く', 'Open')) + '</button>' +
-          '<button type="button" class="soft-btn" data-set-action="print">' + esc(phrase('印刷', 'Print')) + '</button>' +
-          '<button type="button" class="inline-action" data-set-action="duplicate">' + esc(phrase('コピーして編集', 'Duplicate and edit')) + '</button>' +
-          '<button type="button" class="inline-action" data-set-action="rename">' + esc(phrase('名前', 'Rename')) + '</button>' +
-          '<button type="button" class="inline-action danger" data-set-action="delete">' + esc(phrase('消す', 'Delete')) + '</button></div>';
+          '<div class="set-actions-main">' +
+            '<button type="button" class="soft-btn" data-set-action="load">' + esc(phrase('開く', 'Open')) + '</button>' +
+            '<button type="button" class="soft-btn" data-set-action="print">' + esc(phrase('印刷', 'Print')) + '</button>' +
+          '</div>' +
+          '<div class="set-actions-more">' +
+            '<button type="button" class="inline-action" data-set-action="duplicate">' + esc(phrase('コピーして編集', 'Duplicate and edit')) + '</button>' +
+            '<button type="button" class="inline-action" data-set-action="rename">' + esc(phrase('名前', 'Rename')) + '</button>' +
+            '<button type="button" class="inline-action danger" data-set-action="delete">' + esc(phrase('消す', 'Delete')) + '</button>' +
+          '</div></div>';
       return '<div class="set-item" data-set-id="' + id + '"><div class="set-info"><strong>' + esc(set.name) + '</strong><span>' +
         esc(setMeta(set)) + '</span></div>' + body + '</div>';
     }).join('') : '<p class="hint">' + esc(phrase('まだ保存した問題はありません。', 'No saved tests yet.')) + '</p>';
-    updateStorageLine(false);
+    updateStorageLine();
   }
 
   function currentSetSnapshot(name, id) {
@@ -3711,6 +3708,11 @@
     detectKyokasho();
     updatePrintLabels();
     pagePlanCache.key = '';
+    document.querySelectorAll('[data-set-lang]').forEach((btn) => {
+      const on = btn.getAttribute('data-set-lang') === uiLang();
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', String(on));
+    });
     persist();
   }
 

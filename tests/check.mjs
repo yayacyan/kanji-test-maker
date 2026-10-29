@@ -314,6 +314,23 @@ try {
     }
     const saved = document.querySelector('.saved-sets');
     if (saved && saved.offsetParent && saved.scrollWidth > saved.clientWidth + 2) problems.push('sets-overflow');
+    const ui = document.documentElement.lang === 'en' ? 'en' : 'ja';
+    const pills = [...document.querySelectorAll('.lang-switch [data-set-lang]')];
+    const active = pills.filter((b) => b.classList.contains('is-active'));
+    if (active.length !== 1 || active[0].getAttribute('data-set-lang') !== ui) problems.push('lang-pill');
+    else {
+      const other = pills.find((b) => b !== active[0]);
+      if (other && getComputedStyle(other).backgroundColor === getComputedStyle(active[0]).backgroundColor) problems.push('lang-pill-color');
+    }
+    document.querySelectorAll('#saveSetBtn, .set-actions button, .lang-switch button, #countPills .pill-btn').forEach((el) => {
+      if (!el.offsetParent) return;
+      const label = el.textContent.replace(/\s+/g, ' ').trim();
+      if (!label) return;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const tops = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5).map((rect) => rect.top);
+      if (tops.length > 1 && Math.max(...tops) - Math.min(...tops) > 6) problems.push('btn-wrap ' + label.slice(0, 18));
+    });
     const countBtns = [...document.querySelectorAll('#countPills .pill-btn')].filter((b) => b.offsetParent);
     if (countBtns.length >= 5) {
       const tops = countBtns.map((b) => b.getBoundingClientRect().top);
@@ -534,6 +551,24 @@ try {
     await page.click('[data-set-lang="en"]');
     await page.waitForFunction(() => document.querySelector('#savedSets h2')?.textContent === 'My saved tests');
     record('saved list has English labels', (await page.locator('#setList [data-set-action="duplicate"]').first().innerText()) === 'Duplicate and edit');
+    const pill = await page.evaluate(() => {
+      const active = document.querySelector('.lang-switch [data-set-lang].is-active');
+      return active ? active.getAttribute('data-set-lang') : '';
+    });
+    record('English pill is the active language', pill === 'en', pill);
+    await page.click('#sheetSeg [data-sheet="question"]');
+    await page.waitForSelector('#paperHost .q-sec');
+    const section = await page.evaluate(() => {
+      const el = document.querySelector('#paperHost .q-sec');
+      const q = el.closest('.q').getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        text: el.innerText.replace(/\s+/g, ' ').trim(),
+        overflow: el.scrollWidth > el.clientWidth + 2 || r.left < q.left - 1 || r.right > q.right + 1
+      };
+    });
+    record('English section label fits the column', /Reading/.test(section.text) && !/Next Read/.test(section.text) && section.overflow === false, JSON.stringify(section));
+    await page.locator('#paperHost .paper').first().screenshot({ path: path.join(SHOT, 'english_section_label.png') });
     await page.evaluate(() => document.getElementById('savedSets').scrollIntoView({ block: 'start' }));
     await page.screenshot({ path: path.join(SHOT, 'saved_list_en_desktop.png') });
     await page.setViewportSize({ width: 375, height: 812 });
