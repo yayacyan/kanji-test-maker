@@ -7,8 +7,9 @@
   display: flex;
   flex-direction: column;
   width: var(--W);
-  height: calc(var(--H) - 0.6mm); /* 印刷で次のページに送られないよう、画面と同じ高さで測る */
-  padding: 10mm 10mm 13mm;
+  /* ページより少し低くする。Chrome と Safari で端の丸めが違い、ぴったりだと次のページに送られて端が切れる */
+  height: calc(var(--H) - var(--slack, 1.2mm));
+  padding: var(--pad-t, 10mm) var(--pad-x, 10mm) var(--pad-b, 22mm);
   overflow: hidden;
   background: #fff;
   color: #111;
@@ -90,6 +91,7 @@
 .q-main {
   flex: none;
   font-size: var(--tf, var(--f)); /* 問題文の大きさ。中にある解答マス（□・方格）は、これに引きずられず --f で決める */
+  -webkit-writing-mode: vertical-rl;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   line-height: 1.55;
@@ -108,7 +110,7 @@
   text-align: center;
   letter-spacing: 0;
 }
-.tcy { text-combine-upright: all; }
+.tcy { text-combine-upright: all; -webkit-text-combine: horizontal; }
 
 /* 出題する語に線を引く（縦書きでは右側に線） */
 .tgt {
@@ -226,6 +228,7 @@
 .q-ans.free-lines .lineans { margin-left: 0.9em; }
 .ans-vert {
   position: absolute; top: 0.6em; left: 0; right: 0;
+  -webkit-writing-mode: vertical-rl;
   writing-mode: vertical-rl;
   text-align: center;
   color: #d22;
@@ -239,6 +242,7 @@
   flex: 1 1 0;      /* 枠の高さの残りいっぱいを使い、はみ出す分は次の列へ折り返す */
   min-height: 0;
   display: block;
+  -webkit-writing-mode: vertical-rl;
   writing-mode: vertical-rl;
   color: #d22;
   font-weight: 700;
@@ -248,7 +252,8 @@
 
 .paper-brand {
   position: absolute;
-  right: 10mm; bottom: 5mm;
+  right: var(--pad-x, 10mm);
+  bottom: var(--safe, 13mm); /* 家庭用プリンターの下端（約0.5インチ）より内側 */
   font-size: 3.4mm;
   letter-spacing: 0.12em;
   color: #333;
@@ -259,7 +264,7 @@
 .box.okuri-one::before, .box.okuri-one::after { display: none; }
 .box.okuri-one .ans-okuri {
   position: absolute; inset: 0.1em 0 0 0;
-  writing-mode: vertical-rl; text-orientation: upright; line-height: 1.05;
+  -webkit-writing-mode: vertical-rl; writing-mode: vertical-rl; text-orientation: upright; line-height: 1.05;
   display: block; margin: 0 auto; width: 1.05em; color: #d22;
 }
 
@@ -345,7 +350,9 @@
 
 .s-credit {
   position: absolute;
-  left: 10mm; bottom: 5mm; max-width: calc(100% - 20mm - 42mm);
+  left: var(--pad-x, 10mm);
+  bottom: var(--safe, 13mm);
+  max-width: calc(100% - (var(--pad-x, 10mm) * 2) - 46mm);
   font-size: 2.5mm; line-height: 1.4; color: #444; letter-spacing: 0;
 }
 

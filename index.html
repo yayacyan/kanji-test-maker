@@ -15,13 +15,17 @@
         <div class="brand-block">
           <div class="brand-mark" aria-hidden="true"><span>漢</span></div>
           <div>
-            <h1 class="brand-name">漢字テストメーカー</h1>
-            <div class="brand-sub">小学校 漢字テスト作成</div>
+            <h1 class="brand-name" data-i18n="brand-name">漢字テストメーカー</h1>
+            <div class="brand-sub" data-i18n="brand-sub">小学校 漢字テスト作成</div>
           </div>
         </div>
         <div class="header-actions">
-          <span id="saveState" class="save-state" aria-live="polite">この端末に自動保存</span>
-          <button id="printBtn" class="primary-btn print-btn" type="button"><span>印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
+          <div class="lang-switch" role="group" aria-label="Language">
+            <button type="button" data-set-lang="ja">日本語</button>
+            <button type="button" data-set-lang="en">English</button>
+          </div>
+          <span id="saveState" class="save-state" aria-live="polite" data-i18n="save-idle">この端末に自動保存</span>
+          <button id="printBtn" class="primary-btn print-btn" type="button"><span data-i18n="print">印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
         </div>
       </header>
 
@@ -30,148 +34,148 @@
         <section class="pane pane-edit" id="paneEdit">
           <section class="hero">
             <div class="hero-copy">
-              <p class="eyebrow">小学校の漢字テスト作成</p>
-              <h2>縦書きの漢字テストを、<br />その場で作る。</h2>
-              <p class="hero-sub">学年から選ぶ・自分で入れる・写真から。できたら、そのまま印刷できます。<br />書きじゅんをおぼえる「筆順練習プリント」も作れます。</p>
+              <p class="eyebrow" data-i18n="eyebrow">小学校の漢字テスト作成</p>
+              <h2 data-i18n="hero-title" data-i18n-html>縦書きの漢字テストを、<br />その場で作る。</h2>
+              <p class="hero-sub" data-i18n="hero-sub" data-i18n-html>学年から選ぶ・自分で入れる・写真から。できたら、そのまま印刷できます。<br />書きじゅんをおぼえる「筆順練習プリント」も作れます。</p>
             </div>
             <div class="hero-sample" aria-hidden="true">
               <span class="hs-no">①</span>
               <span class="hs-text"><ruby><span class="hs-box">巣</span><rt>す</rt></ruby>を作る。</span>
-              <span class="hs-cap">見本</span>
+              <span class="hs-cap" data-i18n="sample-cap">見本</span>
             </div>
-            <span class="save-state save-state-mobile" aria-hidden="true">この端末に自動保存</span>
+            <span class="save-state save-state-mobile" aria-hidden="true" data-i18n="save-idle">この端末に自動保存</span>
           </section>
 
-          <div class="quick-actions" id="quickActions" role="tablist" aria-label="つくり方をえらぶ">
-            <button class="tile" type="button" data-goto="draw" role="tab"><span class="glyph" aria-hidden="true">学</span><strong>学年から</strong><span class="sub">小1〜6を自動で</span></button>
-            <button class="tile" type="button" data-goto="custom" role="tab"><span class="glyph" aria-hidden="true">書</span><strong>自分で</strong><span class="sub">打つ・貼り付け</span></button>
-            <button class="tile" type="button" data-goto="import" role="tab"><span class="glyph" aria-hidden="true">写</span><strong>写真・AI</strong><span class="sub">写真やAIから</span></button>
-            <button class="tile tile-preview" type="button" data-goto="preview"><strong>プレビュー</strong></button>
+          <div class="quick-actions" id="quickActions" role="tablist" aria-label="つくり方をえらぶ" data-i18n-aria="how">
+            <button class="tile" type="button" data-goto="draw" role="tab"><span class="glyph" aria-hidden="true">学</span><strong data-i18n="tile-grade">学年から</strong><span class="sub" data-i18n="tile-grade-sub">小1〜6を自動で</span></button>
+            <button class="tile" type="button" data-goto="custom" role="tab"><span class="glyph" aria-hidden="true">書</span><strong data-i18n="tile-custom">自分で</strong><span class="sub" data-i18n="tile-custom-sub">打つ・貼り付け</span></button>
+            <button class="tile" type="button" data-goto="import" role="tab"><span class="glyph" aria-hidden="true">写</span><strong data-i18n="tile-import">写真・AI</strong><span class="sub" data-i18n="tile-import-sub">写真やAIから</span></button>
+            <button class="tile tile-preview" type="button" data-goto="preview"><strong data-i18n="tile-preview">プレビュー</strong></button>
           </div>
 
           <!-- 筆順練習プリントは「テストの4つめの作り方」ではなく、できあがる紙そのものが
                別物（テストではなく練習プリント）。上の3つと同じ形で横に並べると同じ仲間に
                見えてしまうので、区切り線を入れ、幅いっぱい・色ちがいの1枚にしている。 -->
           <div class="quick-stroke" id="quickStroke">
-            <p class="qs-divider"><span>テストではなく、練習プリント</span></p>
-            <button class="tile tile-stroke" type="button" data-goto="stroke"><span class="glyph" aria-hidden="true">順</span><strong>筆順練習プリント</strong><span class="sub">書きじゅんの番号・なぞり書き・書き取りマス入り</span></button>
+            <p class="qs-divider"><span data-i18n="qs-divider">テストではなく、練習プリント</span></p>
+            <button class="tile tile-stroke" type="button" data-goto="stroke"><span class="glyph" aria-hidden="true">順</span><strong data-i18n="tile-stroke">筆順練習プリント</strong><span class="sub" data-i18n="tile-stroke-sub">書きじゅんの番号・なぞり書き・書き取りマス入り</span></button>
           </div>
 
           <!-- 写真・AI から取り込む -->
           <details class="tool" id="tool-import" name="tool">
-            <summary>写真・AIから取り込む</summary>
+            <summary data-i18n="sum-import">写真・AIから取り込む</summary>
             <div class="tool-body">
-              <h3 class="sub-title">写真から読み取る</h3>
+              <h3 class="sub-title" data-i18n="ocr-title">写真から読み取る</h3>
               <div class="grid-two">
-                <button type="button" id="ocrCameraBtn" class="soft-btn full-width">写真を撮る</button>
-                <button type="button" id="ocrPickBtn" class="soft-btn full-width">画像を選ぶ</button>
+                <button type="button" id="ocrCameraBtn" class="soft-btn full-width" data-i18n="ocr-camera">写真を撮る</button>
+                <button type="button" id="ocrPickBtn" class="soft-btn full-width" data-i18n="ocr-pick">画像を選ぶ</button>
               </div>
               <input id="ocrCamera" type="file" accept="image/*" capture="environment" hidden />
               <input id="ocrFile" type="file" accept="image/*" hidden />
 
               <details class="mini-details">
-                <summary>読み取りの設定</summary>
+                <summary data-i18n="ocr-settings">読み取りの設定</summary>
                 <div class="grid-two">
                   <label>
-                    <span class="field-label">読み取り方法</span>
+                    <span class="field-label" data-i18n="ocr-method">読み取り方法</span>
                     <select id="ocrProvider" class="select-input"></select>
                   </label>
                   <label class="check-row">
                     <input type="checkbox" id="ocrVertical" />
-                    <span>縦書きの写真のときはチェック</span>
+                    <span data-i18n="ocr-vertical">縦書きの写真のときはチェック</span>
                   </label>
                 </div>
               </details>
               <img id="ocrThumb" class="ocr-thumb" alt="読み取り中の写真" hidden />
-              <div id="ocrStatus" class="status-box" role="status">写真を選ぶと、読み取りを始めます。</div>
+              <div id="ocrStatus" class="status-box" role="status" data-i18n="ocr-status">写真を選ぶと、読み取りを始めます。</div>
 
-              <label class="field-label mt-12" for="ocrText">読み取り結果（この欄で直接直せます）</label>
+              <label class="field-label mt-12" for="ocrText" data-i18n="ocr-result">読み取り結果（この欄で直接直せます）</label>
               <textarea id="ocrText" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。&#10;歩く,あるく,公園を歩く。&#10;山 川 空"></textarea>
               <div id="ocrPreview" class="import-preview"></div>
               <div class="mt-12">
-                <span class="field-label" id="ocrTypeLabel">問題の種類</span>
+                <span class="field-label" id="ocrTypeLabel" data-i18n="q-type">問題の種類</span>
                 <select id="ocrType" class="select-input" data-import-type="ocr" hidden aria-hidden="true" tabindex="-1"></select>
                 <div class="type-picker is-compact" data-for="ocrType" data-label="ocrTypeLabel"></div>
               </div>
-              <button type="button" id="ocrAddBtn" class="primary-btn full-width mt-12">問題に追加</button>
+              <button type="button" id="ocrAddBtn" class="primary-btn full-width mt-12" data-i18n="add-questions">問題に追加</button>
 
               <hr class="divider" />
 
-              <h3 class="sub-title">AIに問題を作ってもらう</h3>
-              <p class="hint">お使いのAI（ChatGPTなど）に「お願い文」を貼り付けて、返ってきた答えをこの下の欄に貼り付けます。</p>
-              <label class="field-label" for="aiTheme">テーマ（なくてもOK）</label>
-              <input id="aiTheme" class="text-input" type="text" placeholder="例：春の生きもの、学校生活" />
-              <button type="button" id="copyPromptBtn" class="soft-btn full-width mt-12">AIへのお願い文をコピー</button>
+              <h3 class="sub-title" data-i18n="ai-title">AIに問題を作ってもらう</h3>
+              <p class="hint" data-i18n="ai-hint">お使いのAI（ChatGPTなど）に「お願い文」を貼り付けて、返ってきた答えをこの下の欄に貼り付けます。</p>
+              <label class="field-label" for="aiTheme" data-i18n="ai-theme">テーマ（なくてもOK）</label>
+              <input id="aiTheme" class="text-input" type="text" placeholder="例：春の生きもの、学校生活" data-i18n-placeholder="ph-theme" />
+              <button type="button" id="copyPromptBtn" class="soft-btn full-width mt-12" data-i18n="ai-copy">AIへのお願い文をコピー</button>
               <details class="mini-details">
-                <summary>コピーされる内容を見る</summary>
+                <summary data-i18n="ai-see">コピーされる内容を見る</summary>
                 <textarea id="aiPromptText" class="text-input" rows="8" readonly></textarea>
               </details>
 
-              <label class="field-label mt-12" for="aiInput">AIの答えを貼り付け（形式：漢字（よみ）／例文）</label>
+              <label class="field-label mt-12" for="aiInput" data-i18n="ai-paste">AIの答えを貼り付け（形式：漢字（よみ）／例文）</label>
               <textarea id="aiInput" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。"></textarea>
               <div id="aiPreview" class="import-preview"></div>
               <div class="mt-12">
-                <span class="field-label" id="aiTypeLabel">問題の種類</span>
+                <span class="field-label" id="aiTypeLabel" data-i18n="q-type">問題の種類</span>
                 <select id="aiType" class="select-input" data-import-type="ai" hidden aria-hidden="true" tabindex="-1"></select>
                 <div class="type-picker is-compact" data-for="aiType" data-label="aiTypeLabel"></div>
               </div>
-              <button type="button" id="aiAddBtn" class="primary-btn full-width mt-12">問題に追加</button>
+              <button type="button" id="aiAddBtn" class="primary-btn full-width mt-12" data-i18n="add-questions">問題に追加</button>
             </div>
           </details>
 
           <!-- 学年から問題を作る -->
           <details class="tool" id="tool-draw" name="tool" open>
-            <summary>学年から問題を作る</summary>
+            <summary data-i18n="sum-draw">学年から問題を作る</summary>
             <div class="tool-body">
-              <label class="field-label" for="gradeRange">学年</label>
+              <label class="field-label" for="gradeRange" data-i18n="grade">学年</label>
               <select id="gradeRange" class="select-input">
-                <option value="1">小学1年</option>
-                <option value="2">小学2年</option>
-                <option value="3">小学3年</option>
-                <option value="4">小学4年</option>
-                <option value="5">小学5年</option>
-                <option value="6">小学6年</option>
-                <option value="1-2">小学1〜2年</option>
-                <option value="1-3">小学1〜3年</option>
-                <option value="1-6">小学1〜6年</option>
+                <option value="1" data-i18n="g1">小学1年</option>
+                <option value="2" data-i18n="g2">小学2年</option>
+                <option value="3" data-i18n="g3">小学3年</option>
+                <option value="4" data-i18n="g4">小学4年</option>
+                <option value="5" data-i18n="g5">小学5年</option>
+                <option value="6" data-i18n="g6">小学6年</option>
+                <option value="1-2" data-i18n="g12">小学1〜2年</option>
+                <option value="1-3" data-i18n="g13">小学1〜3年</option>
+                <option value="1-6" data-i18n="g16">小学1〜6年</option>
               </select>
 
-              <span class="field-label mt-12">問題の数</span>
+              <span class="field-label mt-12" data-i18n="q-count">問題の数</span>
               <div class="pill-group" id="countPills">
-                <button type="button" class="pill-btn" data-count="10">10問</button>
-                <button type="button" class="pill-btn" data-count="15">15問</button>
-                <button type="button" class="pill-btn" data-count="20">20問</button>
-                <button type="button" class="pill-btn" data-count="30">30問</button>
-                <button type="button" class="pill-btn" data-count="50">50問</button>
+                <button type="button" class="pill-btn" data-count="10" data-i18n="n10">10問</button>
+                <button type="button" class="pill-btn" data-count="15" data-i18n="n15">15問</button>
+                <button type="button" class="pill-btn" data-count="20" data-i18n="n20">20問</button>
+                <button type="button" class="pill-btn" data-count="30" data-i18n="n30">30問</button>
+                <button type="button" class="pill-btn" data-count="50" data-i18n="n50">50問</button>
               </div>
 
               <label class="mt-12 block-label">
-                <span class="field-label">用紙の大きさ</span>
+                <span class="field-label" data-i18n="paper-size">用紙の大きさ</span>
                 <select id="gradeFormatSelect" class="select-input"></select>
               </label>
-              <p class="hint size-hint">書きやすい大きさにするには、A4縦なら10問くらいまでがおすすめです（問題の種類や文の長さで変わります。作ったあと、大きさの目安が出ます）。マスを大きくしたいときは、まず用紙をA4横にして試してみてください。多くの場合は同じ問題数でも大きくなりますが、練習マス・なぞり書きのようにマスを下へ積む種類では、かえって小さくなることもあります。それでも小さいときはA3横も試せます（A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります。コンビニなどの印刷が必要です）。問題を作ったあとは、用紙を変えるとマスが何mmになるかを実際に測って案内します。</p>
+              <p class="hint size-hint" data-i18n="size-hint" data-i18n-html>書きやすい大きさにするには、A4縦・レター縦なら10問くらいまでがおすすめです（問題の種類や文の長さで変わります。作ったあと、大きさの目安が出ます）。マスを大きくしたいときは、まず用紙をA4横かレター横にして試してみてください。多くの場合は同じ問題数でも大きくなりますが、練習マス・なぞり書きのようにマスを下へ積む種類では、かえって小さくなることもあります。それでも小さいときはA3横も試せます（A3は大きな紙なので、家庭用プリンターでは印刷できないことがあります。コンビニなどの印刷が必要です）。レターは、アメリカなどでよく使う用紙の大きさです。問題を作ったあとは、用紙を変えるとマスが何mmになるかを実際に測って案内します。</p>
 
-              <span class="field-label mt-12">問題の種類（複数選べます）</span>
+              <span class="field-label mt-12" data-i18n="types-label">問題の種類（複数選べます）</span>
               <div class="pill-group" id="typePills"></div>
               <div class="sticky-action">
-                <button type="button" id="generateBtn" class="primary-btn full-width">問題を作る</button>
+                <button type="button" id="generateBtn" class="primary-btn full-width" data-i18n="make">問題を作る</button>
               </div>
-              <div id="drawStatus" class="status-box" role="status">同じ漢字は重ならないように選びます。</div>
+              <div id="drawStatus" class="status-box" role="status" data-i18n="draw-status">同じ漢字は重ならないように選びます。</div>
 
               <div id="typeCounts" class="type-counts" aria-live="polite"></div>
 
               <details class="mini-details">
-                <summary>くわしい設定</summary>
+                <summary data-i18n="more-settings">くわしい設定</summary>
                 <label class="check-row">
                   <input type="checkbox" id="genReplace" />
-                  <span>前回に作った問題を入れ替える（自分で作った問題・写真・AIの問題は残します）</span>
+                  <span data-i18n="replace">前回に作った問題を入れ替える（自分で作った問題・写真・AIの問題は残します）</span>
                 </label>
                 <label class="check-row">
                   <input type="checkbox" id="avoidRecent" />
-                  <span>以前に出した漢字はなるべくさける</span>
+                  <span data-i18n="avoid">以前に出した漢字はなるべくさける</span>
                 </label>
-                <p class="hint">出した漢字の記録：<strong id="historyCount">0</strong>字
-                  <button type="button" id="clearHistoryBtn" class="inline-action">記録を消す</button></p>
+                <p class="hint"><span data-i18n="history">出した漢字の記録：</span><strong id="historyCount">0</strong><span data-i18n="history-unit">字</span>
+                  <button type="button" id="clearHistoryBtn" class="inline-action" data-i18n="clear-history">記録を消す</button></p>
               </details>
 
             </div>
@@ -179,150 +183,150 @@
 
           <!-- 自分で問題を作る -->
           <details class="tool" id="tool-custom" name="tool">
-            <summary>自分で問題を作る</summary>
+            <summary data-i18n="sum-custom">自分で問題を作る</summary>
             <div class="tool-body">
               <div>
-                <span class="field-label" id="customTypeLabel">1問ずつ入れる問題の種類（できあがりの絵で選べます）</span>
+                <span class="field-label" id="customTypeLabel" data-i18n="custom-type">1問ずつ入れる問題の種類（できあがりの絵で選べます）</span>
                 <select id="customType" class="select-input" hidden aria-hidden="true" tabindex="-1"></select>
                 <div class="type-picker" data-for="customType" data-label="customTypeLabel"></div>
               </div>
               <label class="mt-12 block-label">
-                <span class="field-label">答えを書く場所</span>
+                <span class="field-label" data-i18n="answer-place">答えを書く場所</span>
                 <select id="customStyle" class="select-input"></select>
               </label>
 
               <div class="grid-two mt-12">
                 <label>
-                  <span class="field-label" id="customKanjiLabel">漢字</span>
+                  <span class="field-label" id="customKanjiLabel" data-i18n="kanji">漢字</span>
                   <input id="customKanji" class="text-input" type="text" autocomplete="off" placeholder="巣" />
                 </label>
                 <label>
-                  <span class="field-label" id="customReadingLabel">よみがな</span>
+                  <span class="field-label" id="customReadingLabel" data-i18n="reading">よみがな</span>
                   <input id="customReading" class="text-input" type="text" autocomplete="off" placeholder="す" />
                 </label>
               </div>
               <p class="hint" id="customHint"></p>
 
-              <label class="field-label mt-12" for="customSentence" id="customSentenceLabel">例文</label>
+              <label class="field-label mt-12" for="customSentence" id="customSentenceLabel" data-i18n="sentence">例文</label>
               <textarea id="customSentence" class="text-input" rows="2" placeholder="くもの巣がはる。"></textarea>
 
-              <label class="field-label mt-12" for="customAnswer">答え（空欄なら自動で入ります）</label>
+              <label class="field-label mt-12" for="customAnswer" data-i18n="answer-auto">答え（空欄なら自動で入ります）</label>
               <input id="customAnswer" class="text-input" type="text" autocomplete="off" />
 
               <div class="grid-two mt-12">
-                <button type="button" id="addQuestionBtn" class="primary-btn full-width">追加</button>
-                <button type="button" id="resetFormBtn" class="ghost-btn full-width">クリア</button>
+                <button type="button" id="addQuestionBtn" class="primary-btn full-width" data-i18n="add">追加</button>
+                <button type="button" id="resetFormBtn" class="ghost-btn full-width" data-i18n="clear">クリア</button>
               </div>
 
               <hr class="divider" />
 
-              <h3 class="sub-title">まとめて貼り付け</h3>
-              <p class="hint">1行に1問。<strong>漢字だけ書いても大丈夫</strong>です（例：巣 歩 観）。小学校の漢字なら、よみがなと例文が自動で入ります。次の形も使えます。</p>
+              <h3 class="sub-title" data-i18n="bulk-title">まとめて貼り付け</h3>
+              <p class="hint" data-i18n="bulk-hint" data-i18n-html>1行に1問。<strong>漢字だけ書いても大丈夫</strong>です（例：巣 歩 観）。小学校の漢字なら、よみがなと例文が自動で入ります。次の形も使えます。</p>
               <pre class="format-sample">巣（す）／くもの巣がはる。
 巣,す,くもの巣がはる。
 花の（　）が出る。|芽</pre>
               <textarea id="bulkText" class="text-input" rows="5" aria-label="まとめて貼り付け" placeholder="巣 歩 観"></textarea>
               <div id="bulkPreview" class="import-preview"></div>
               <div class="mt-12">
-                <span class="field-label" id="bulkTypeLabel">まとめて追加する問題の種類</span>
+                <span class="field-label" id="bulkTypeLabel" data-i18n="bulk-type">まとめて追加する問題の種類</span>
                 <select id="bulkType" class="select-input" data-import-type="bulk" hidden aria-hidden="true" tabindex="-1"></select>
                 <div class="type-picker is-compact" data-for="bulkType" data-label="bulkTypeLabel"></div>
               </div>
-              <button type="button" id="bulkAddBtn" class="primary-btn full-width mt-12">問題に追加</button>
+              <button type="button" id="bulkAddBtn" class="primary-btn full-width mt-12" data-i18n="add-questions">問題に追加</button>
             </div>
           </details>
 
           <!-- 筆順練習プリントを作る -->
           <details class="tool" id="tool-stroke" name="tool">
-            <summary>筆順練習プリントを作る</summary>
+            <summary data-i18n="sum-stroke">筆順練習プリントを作る</summary>
             <div class="tool-body">
-              <p class="hint">漢字の<strong>書きじゅん（赤い数字）</strong>と読み、なぞり書き・書き取りのマスが入った、横書きの練習プリントを作ります。小学1〜6年の1026字が使えます。</p>
+              <p class="hint" data-i18n="stroke-lead" data-i18n-html>漢字の<strong>書きじゅん（赤い数字）</strong>と読み、なぞり書き・書き取りのマスが入った、横書きの練習プリントを作ります。小学1〜6年の1026字が使えます。</p>
 
-              <label class="field-label mt-12" for="strokeText">練習する漢字</label>
-              <textarea id="strokeText" class="text-input" rows="3" autocomplete="off" placeholder="水 花 祭（つづけて「水花祭」と打ってもかまいません）"></textarea>
-              <div id="strokeStatus" class="status-box" role="status">練習したい漢字を入れてください。下の一覧から選べます。</div>
+              <label class="field-label mt-12" for="strokeText" data-i18n="stroke-kanji">練習する漢字</label>
+              <textarea id="strokeText" class="text-input" rows="3" autocomplete="off" placeholder="水 花 祭（つづけて「水花祭」と打ってもかまいません）" data-i18n-placeholder="ph-stroke"></textarea>
+              <div id="strokeStatus" class="status-box" role="status" data-i18n="stroke-status">練習したい漢字を入れてください。下の一覧から選べます。</div>
 
               <div class="grid-two mt-12">
                 <label>
-                  <span class="field-label">学年から選ぶ</span>
+                  <span class="field-label" data-i18n="pick-grade">学年から選ぶ</span>
                   <select id="strokePickGrade" class="select-input">
-                    <option value="1">小学1年</option>
-                    <option value="2">小学2年</option>
-                    <option value="3">小学3年</option>
-                    <option value="4">小学4年</option>
-                    <option value="5">小学5年</option>
-                    <option value="6">小学6年</option>
+                    <option value="1" data-i18n="g1">小学1年</option>
+                    <option value="2" data-i18n="g2">小学2年</option>
+                    <option value="3" data-i18n="g3">小学3年</option>
+                    <option value="4" data-i18n="g4">小学4年</option>
+                    <option value="5" data-i18n="g5">小学5年</option>
+                    <option value="6" data-i18n="g6">小学6年</option>
                   </select>
                 </label>
                 <label>
-                  <span class="field-label">用紙の大きさ</span>
+                  <span class="field-label" data-i18n="paper-size">用紙の大きさ</span>
                   <select id="strokeFormatSelect" class="select-input"></select>
                 </label>
               </div>
-              <p class="hint">下の字を押すと、上の欄に出たり消えたりします。</p>
+              <p class="hint" data-i18n="chip-hint">下の字を押すと、上の欄に出たり消えたりします。</p>
               <div id="strokePickList" class="s-chips" role="group" aria-label="学年の漢字から選ぶ"></div>
               <div class="grid-two mt-12">
-                <button type="button" id="strokeClearBtn" class="ghost-btn full-width">えらんだ字を全部消す</button>
-                <button type="button" id="strokeSampleBtn" class="soft-btn full-width">見本の字を入れる</button>
+                <button type="button" id="strokeClearBtn" class="ghost-btn full-width" data-i18n="stroke-clear">えらんだ字を全部消す</button>
+                <button type="button" id="strokeSampleBtn" class="soft-btn full-width" data-i18n="stroke-sample">見本の字を入れる</button>
               </div>
 
               <details class="mini-details">
-                <summary>くわしい設定</summary>
+                <summary data-i18n="more-settings">くわしい設定</summary>
                 <label class="block-label">
-                  <span class="field-label">プリントの名前</span>
+                  <span class="field-label" data-i18n="sheet-name">プリントの名前</span>
                   <input id="strokeTitle" class="text-input" type="text" maxlength="40" />
                 </label>
                 <div class="grid-two mt-12">
                   <label>
-                    <span class="field-label">なぞり書きのマス</span>
+                    <span class="field-label" data-i18n="trace-count">なぞり書きのマス</span>
                     <select id="strokeTrace" class="select-input">
-                      <option value="0">なし</option>
-                      <option value="1">1マス</option>
-                      <option value="2">2マス</option>
-                      <option value="3">3マス</option>
-                      <option value="4">4マス</option>
+                      <option value="0" data-i18n="none">なし</option>
+                      <option value="1" data-i18n="cell1">1マス</option>
+                      <option value="2" data-i18n="cell2">2マス</option>
+                      <option value="3" data-i18n="cell3">3マス</option>
+                      <option value="4" data-i18n="cell4">4マス</option>
                     </select>
                   </label>
                   <label>
-                    <span class="field-label">書き取りのマス</span>
+                    <span class="field-label" data-i18n="blank-count">書き取りのマス</span>
                     <select id="strokeBlank" class="select-input">
-                      <option value="2">2マス</option>
-                      <option value="3">3マス</option>
-                      <option value="4">4マス</option>
-                      <option value="5">5マス</option>
-                      <option value="6">6マス</option>
-                      <option value="8">8マス</option>
-                      <option value="10">10マス</option>
+                      <option value="2" data-i18n="cell2">2マス</option>
+                      <option value="3" data-i18n="cell3">3マス</option>
+                      <option value="4" data-i18n="cell4">4マス</option>
+                      <option value="5" data-i18n="cell5">5マス</option>
+                      <option value="6" data-i18n="cell6">6マス</option>
+                      <option value="8" data-i18n="cell8">8マス</option>
+                      <option value="10" data-i18n="cell10">10マス</option>
                     </select>
                   </label>
                 </div>
-                <p class="hint">マスを増やすと1マスが小さくなります。小さくなりすぎるときは、用紙をA4横・A3横にしてください。</p>
+                <p class="hint" data-i18n="cell-hint">マスを増やすと1マスが小さくなります。小さくなりすぎるときは、用紙をA4横・レター横・A3横にしてください。</p>
               </details>
 
               <!-- 筆順データの正直な説明。何を確かめ、何を確かめていないかを先生に先に伝えるため。
                    用紙の左下にも短い版（STROKE_NOTE）を入れ、ここを読むように案内している。 -->
               <details class="mini-details" id="strokeDataNote">
-                <summary>筆順データについて（出典と、確かめた範囲）</summary>
-                <p class="hint">
+                <summary data-i18n="stroke-about">筆順データについて（出典と、確かめた範囲）</summary>
+                <p class="hint" data-i18n="stroke-about-1" data-i18n-html>
                   このプリントの筆順は、公開されている筆順データ「<strong>KanjiVG</strong>」（作成者：Ulrich Apel 氏ほか／CC BY-SA 3.0）をもとにしています。日英辞典サイトの Jisho.org など、漢字の学習サイトやアプリでも使われているデータで、誤りの指摘を受けながら修正が続けられています。読みは <strong>KANJIDIC2</strong>（電子辞書研究開発グループ／CC BY-SA 4.0）をもとに、そのうち<strong>常用漢字表</strong>（平成22年内閣告示第2号）の音訓欄に挙げられているものだけを載せています。
                 </p>
-                <p class="hint">
+                <p class="hint" data-i18n="stroke-about-2" data-i18n-html>
                   <strong>確かめたこと</strong><br />
                   ・小学校で習う漢字1026字すべてについて、KanjiVG の画数と KANJIDIC2 の画数が一致すること<br />
                   ・同じ1026字すべてについて、プリントに描かれる画の数と、筆順を示す赤い番号の数が一致すること<br />
                   ・筆順を迷いやすい「確」「成」の2字について、文部省『筆順指導の手びき』（昭和33年）に示された筆順と一致すること
                 </p>
-                <p class="hint">
+                <p class="hint" data-i18n="stroke-about-3" data-i18n-html>
                   <strong>確かめていないこと</strong><br />
                   教科書の筆順表と1字ずつ照らし合わせる作業は行っていません。お子さんやクラスに渡す前に、お手元の教科書の筆順表と見比べていただけると、より確実です。
                 </p>
-                <p class="hint">
+                <p class="hint" data-i18n="stroke-about-4">
                   また、筆順は教科書によって異なることがあります。『筆順指導の手びき』にも、そこで取り上げていない筆順を誤りとするものではない、という趣旨の記述があります。違いにお気づきの場合は、お使いの教科書の筆順を優先してください。
                 </p>
               </details>
 
               <div class="sticky-action">
-                <button type="button" id="strokeMakeBtn" class="primary-btn full-width">筆順練習プリントを作る</button>
+                <button type="button" id="strokeMakeBtn" class="primary-btn full-width" data-i18n="stroke-make">筆順練習プリントを作る</button>
               </div>
             </div>
           </details>
@@ -330,37 +334,37 @@
           <!-- 問題一覧 -->
           <section class="panel" id="listPanel">
             <div class="list-head">
-              <h2>問題一覧 <span id="listCount" class="count-badge">0</span></h2>
+              <h2><span data-i18n="list-title">問題一覧</span> <span id="listCount" class="count-badge">0</span></h2>
               <div class="list-tools">
-                <button type="button" id="shuffleBtn" class="inline-action">シャッフル</button>
-                <button type="button" id="groupTypeBtn" class="inline-action" title="同じ種類の問題を、続けて並べます">種類ごと</button>
-                <button type="button" id="sortGradeBtn" class="inline-action">学年順</button>
-                <button type="button" id="clearAllBtn" class="inline-action danger">全部消す</button>
+                <button type="button" id="shuffleBtn" class="inline-action" data-i18n="shuffle">シャッフル</button>
+                <button type="button" id="groupTypeBtn" class="inline-action" title="同じ種類の問題を、続けて並べます" data-i18n="group-type" data-i18n-title="group-type-title">種類ごと</button>
+                <button type="button" id="sortGradeBtn" class="inline-action" data-i18n="sort-grade">学年順</button>
+                <button type="button" id="clearAllBtn" class="inline-action danger" data-i18n="clear-all">全部消す</button>
               </div>
             </div>
             <label class="bulk-type">
-              <span class="field-label">全部の問題の種類を、まとめて変える</span>
+              <span class="field-label" data-i18n="bulk-change">全部の問題の種類を、まとめて変える</span>
               <select id="bulkTypeSelect" class="select-input" aria-label="全部の問題の種類をまとめて変える"></select>
             </label>
             <div id="listNotice" class="list-notice" role="status" hidden></div>
             <div id="questionList" class="question-list"></div>
 
             <details class="mini-details sets">
-              <summary>名前をつけて保存・呼び出し（学年や回ごとに使い分ける）</summary>
-              <p class="hint">いまの問題と用紙の設定を、名前をつけて保存できます。（例：小3 第5回 A ／ 小5 第5回 B）</p>
+              <summary data-i18n="sets-sum">名前をつけて保存・呼び出し（学年や回ごとに使い分ける）</summary>
+              <p class="hint" data-i18n="sets-hint">いまの問題と用紙の設定を、名前をつけて保存できます。（例：小3 第5回 A ／ 小5 第5回 B）</p>
               <div class="set-save">
-                <input id="setName" class="text-input" type="text" maxlength="30" placeholder="例：小3 第5回 A" aria-label="セットの名前" />
-                <button type="button" id="saveSetBtn" class="soft-btn">保存</button>
+                <input id="setName" class="text-input" type="text" maxlength="30" placeholder="例：小3 第5回 A" aria-label="セットの名前" data-i18n-placeholder="ph-set" data-i18n-aria="set-name" />
+                <button type="button" id="saveSetBtn" class="soft-btn" data-i18n="save">保存</button>
               </div>
               <div id="setList" class="set-list"></div>
             </details>
 
             <details class="mini-details backup">
-              <summary>保存・読み込み（別の端末で使うとき）</summary>
-              <p class="hint">問題と設定は、この端末のブラウザに自動で保存されています。別のスマホやパソコンで使うときは、ファイルに書き出して移してください。</p>
+              <summary data-i18n="backup-sum">保存・読み込み（別の端末で使うとき）</summary>
+              <p class="hint" data-i18n="backup-hint">問題と設定は、この端末のブラウザに自動で保存されています。別のスマホやパソコンで使うときは、ファイルに書き出して移してください。</p>
               <div class="grid-two">
-                <button type="button" id="exportBtn" class="soft-btn full-width">ファイルに書き出す</button>
-                <button type="button" id="importBtn" class="soft-btn full-width">ファイルから読み込む</button>
+                <button type="button" id="exportBtn" class="soft-btn full-width" data-i18n="export">ファイルに書き出す</button>
+                <button type="button" id="importBtn" class="soft-btn full-width" data-i18n="import">ファイルから読み込む</button>
               </div>
               <input id="importFile" type="file" accept=".json,application/json" hidden />
             </details>
@@ -370,116 +374,118 @@
         <!-- ============ プレビュー ============ -->
         <section class="pane pane-preview" id="panePreview">
           <div class="preview-bar">
-            <div class="seg sheet-seg" id="sheetSeg" role="group" aria-label="用紙の種類">
-              <button type="button" data-sheet="question">問題用紙</button>
-              <button type="button" data-sheet="answer">解答用紙</button>
-              <button type="button" data-sheet="stroke">筆順練習</button>
+            <div class="seg sheet-seg" id="sheetSeg" role="group" aria-label="用紙の種類" data-i18n-aria="sheet-kind">
+              <button type="button" data-sheet="question" data-i18n="sheet-q">問題用紙</button>
+              <button type="button" data-sheet="answer" data-i18n="sheet-a">解答用紙</button>
+              <button type="button" data-sheet="stroke" data-i18n="sheet-s">筆順練習</button>
             </div>
             <label class="bar-field">
-              <span class="sr-only">用紙サイズ</span>
-              <select id="printFormat" class="select-input" aria-label="用紙サイズ">
+              <span class="bar-label" data-i18n="paper-size-short">用紙</span>
+              <select id="printFormat" class="select-input" aria-label="用紙サイズ" data-i18n-aria="paper-size">
                 <option value="A4-portrait">A4 縦</option>
                 <option value="A4-landscape">A4 横</option>
+                <option value="Letter-portrait">レター 縦（米国）</option>
+                <option value="Letter-landscape">レター 横（米国）</option>
                 <option value="A3-landscape">A3 横</option>
               </select>
             </label>
-            <div class="zoom-group" role="group" aria-label="拡大縮小">
-              <button type="button" id="zoomOut" class="ghost-btn" aria-label="縮小">−</button>
+            <div class="zoom-group" role="group" aria-label="拡大縮小" data-i18n-aria="zoom">
+              <button type="button" id="zoomOut" class="ghost-btn" aria-label="縮小" data-i18n-aria="zoom-out">−</button>
               <span id="zoomLabel" class="zoom-label" aria-live="polite">100%</span>
-              <button type="button" id="zoomIn" class="ghost-btn" aria-label="拡大">＋</button>
-              <button type="button" id="zoomFit" class="ghost-btn fit-btn">画面に合わせる</button>
+              <button type="button" id="zoomIn" class="ghost-btn" aria-label="拡大" data-i18n-aria="zoom-in">＋</button>
+              <button type="button" id="zoomFit" class="ghost-btn fit-btn" data-i18n="zoom-fit">画面に合わせる</button>
             </div>
-            <button type="button" id="printBtn2" class="primary-btn print-btn"><span>印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
+            <button type="button" id="printBtn2" class="primary-btn print-btn"><span data-i18n="print">印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
           </div>
 
           <details class="layout-settings">
-            <summary>用紙と並び方の設定</summary>
+            <summary data-i18n="layout-sum">用紙と並び方の設定</summary>
             <div class="settings-panel">
             <div class="settings-grid">
               <label>
-                <span class="field-label">テストの名前</span>
+                <span class="field-label" data-i18n="test-name">テストの名前</span>
                 <input id="setTitle" class="text-input" type="text" data-setting="title" />
               </label>
               <label>
-                <span class="field-label">見出しの補足（学年・単元など）</span>
-                <input id="setSubtitle" class="text-input" type="text" data-setting="subtitle" placeholder="例：3年 第2回" />
+                <span class="field-label" data-i18n="subtitle">見出しの補足（学年・単元など）</span>
+                <input id="setSubtitle" class="text-input" type="text" data-setting="subtitle" placeholder="例：3年 第2回" data-i18n-placeholder="ph-sub" />
               </label>
               <label>
-                <span class="field-label">並べる段の数</span>
+                <span class="field-label" data-i18n="tiers">並べる段の数</span>
                 <select id="setTiers" class="select-input" data-setting="tiers">
-                  <option value="auto">おまかせ</option>
-                  <option value="1">1段</option>
-                  <option value="2">2段</option>
-                  <option value="3">3段</option>
-                  <option value="4">4段</option>
-                  <option value="5">5段</option>
+                  <option value="auto" data-i18n="tier-auto">おまかせ</option>
+                  <option value="1" data-i18n="tier1">1段</option>
+                  <option value="2" data-i18n="tier2">2段</option>
+                  <option value="3" data-i18n="tier3">3段</option>
+                  <option value="4" data-i18n="tier4">4段</option>
+                  <option value="5" data-i18n="tier5">5段</option>
                 </select>
               </label>
               <label>
-                <span class="field-label">書体</span>
+                <span class="field-label" data-i18n="font">書体</span>
                 <select id="setFont" class="select-input" data-setting="font">
-                  <option value="kyokasho">教科書体</option>
-                  <option value="mincho">明朝体</option>
-                  <option value="gothic">ゴシック体</option>
+                  <option value="kyokasho" data-i18n="font-kyo">教科書体</option>
+                  <option value="mincho" data-i18n="font-min">明朝体</option>
+                  <option value="gothic" data-i18n="font-goth">ゴシック体</option>
                 </select>
               </label>
               <label>
-                <span class="field-label">1問あたりの点数（合計を「点／◯点」と表示）</span>
-                <input id="setPoints" class="text-input" type="number" inputmode="numeric" min="0" max="100" data-setting="pointsEach" placeholder="例：2" />
+                <span class="field-label" data-i18n="points">1問あたりの点数（合計を「点／◯点」と表示）</span>
+                <input id="setPoints" class="text-input" type="number" inputmode="numeric" min="0" max="100" data-setting="pointsEach" placeholder="例：2" data-i18n-placeholder="ph-points" />
               </label>
               <label>
-                <span class="field-label">練習マス・なぞり書きで、同じ字を書く回数（1列10マスまで）</span>
+                <span class="field-label" data-i18n="reps">練習マス・なぞり書きで、同じ字を書く回数（1列10マスまで）</span>
                 <select id="setReps" class="select-input" data-setting="practiceReps">
-                  <option value="1">1回</option>
-                  <option value="2">2回</option>
-                  <option value="3">3回</option>
-                  <option value="4">4回</option>
-                  <option value="5">5回</option>
+                  <option value="1" data-i18n="rep1">1回</option>
+                  <option value="2" data-i18n="rep2">2回</option>
+                  <option value="3" data-i18n="rep3">3回</option>
+                  <option value="4" data-i18n="rep4">4回</option>
+                  <option value="5" data-i18n="rep5">5回</option>
                 </select>
               </label>
               <div class="check-stack">
-                <label class="check-row"><input type="checkbox" data-setting="showInstructions" /><span>問題の種類ごとの説明文を入れる</span></label>
-                <label class="check-row"><input type="checkbox" data-setting="showName" /><span>名前の欄を入れる</span></label>
-                <label class="check-row"><input type="checkbox" data-setting="showClass" /><span>学年・組の欄を入れる</span></label>
-                <label class="check-row"><input type="checkbox" data-setting="showDate" /><span>日付の欄を入れる</span></label>
-                <label class="check-row"><input type="checkbox" data-setting="showScore" /><span>点数の欄を入れる</span></label>
-                <label class="check-row"><input type="checkbox" data-setting="readingHint" /><span>例文の空欄に、読みがなを小さく付ける</span></label>
-                <label class="check-row"><input type="checkbox" data-setting="okuriCells" /><span>送りがなのマスを字数どおりにする（字数から答えがわかります）</span></label>
-                <label class="check-row"><input type="checkbox" data-setting="printBoth" /><span>印刷するとき、問題用紙と解答用紙を続けて出す</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showInstructions" /><span data-i18n="opt-ins">問題の種類ごとの説明文を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showName" /><span data-i18n="opt-name">名前の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showClass" /><span data-i18n="opt-class">学年・組の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showDate" /><span data-i18n="opt-date">日付の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="showScore" /><span data-i18n="opt-score">点数の欄を入れる</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="readingHint" /><span data-i18n="opt-ruby">例文の空欄に、読みがなを小さく付ける</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="okuriCells" /><span data-i18n="opt-okuri">送りがなのマスを字数どおりにする（字数から答えがわかります）</span></label>
+                <label class="check-row"><input type="checkbox" data-setting="printBoth" /><span data-i18n="opt-both">印刷するとき、問題用紙と解答用紙を続けて出す</span></label>
               </div>
             </div>
-            <p class="hint">PDFにするとき：印刷の画面で「PDFに保存」を選びます（用紙サイズは自動で合います）。</p>
+            <p class="hint" data-i18n="pdf-hint">PDFにするとき：印刷の画面で「PDFに保存」を選びます（用紙サイズは自動で合います）。端が切れるときは、余白を「なし」、倍率を「100%」にして、用紙を画面で選んだ大きさ（A4・レター・A3）に合わせてください。</p>
             </div>
           </details>
 
           <div id="sheetInfo" class="sheet-info" role="status"></div>
-          <p class="print-hint">できたら右上の「印刷 / PDF」を押します。印刷画面で「PDFとして保存」を選ぶと、ファイルにも残せます。</p>
+          <p class="print-hint" data-i18n="print-hint">できたら右上の「印刷 / PDF」を押します。印刷画面で「PDFとして保存」を選ぶと、ファイルにも残せます。</p>
 
-          <div class="sheet-viewport" id="sheetViewport" tabindex="0" aria-label="テスト用紙のプレビュー（横にスクロールできます）">
+          <div class="sheet-viewport" id="sheetViewport" tabindex="0" aria-label="テスト用紙のプレビュー（横にスクロールできます）" data-i18n-aria="viewport">
             <div id="paperHost" class="paper-preview"></div>
           </div>
         </section>
       </main>
 
-      <nav class="view-tabs" id="viewTabs" aria-label="表示切り替え">
-        <button type="button" class="view-btn" data-view="edit">編集<span id="tabCount" class="tab-count"></span></button>
-        <button type="button" class="view-btn" data-view="preview">プレビュー</button>
-        <button type="button" class="view-btn" data-view="answer">解答</button>
+      <nav class="view-tabs" id="viewTabs" aria-label="表示切り替え" data-i18n-aria="tabs">
+        <button type="button" class="view-btn" data-view="edit"><span data-i18n="tab-edit">編集</span><span id="tabCount" class="tab-count"></span></button>
+        <button type="button" class="view-btn" data-view="preview" data-i18n="tab-preview">プレビュー</button>
+        <button type="button" class="view-btn" data-view="answer" data-i18n="tab-answer">解答</button>
       </nav>
 
       <footer class="site-footer">
-        <a href="changelog.html">更新履歴 ／ Changelog ／ 更新日誌</a>
+        <a href="changelog.html" data-i18n="changelog">更新履歴 ／ Changelog ／ 更新日誌</a>
         <!-- 筆順練習プリントで使っているデータの出典。KanjiVG は自分の著作権表示に記載して
              公式サイトへリンクすること、KANJIDIC2（EDRDG）は表示する画面ごとに記載することが
              それぞれの許諾条件なので、この欄は消さないでください。 -->
         <div class="data-credit">
-          <p>
+          <p data-i18n="credit-1" data-i18n-html>
             筆順データ：KanjiVG（著作者 Ulrich Apel）CC BY-SA 3.0<br />
             　<a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">https://kanjivg.tagaini.net</a>
             ／ <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">https://creativecommons.org/licenses/by-sa/3.0/</a><br />
             　※小学校で学ぶ1026字ぶんのデータを抽出し、本サイトの表示用に加工しています。
           </p>
-          <p>
+          <p data-i18n="credit-2" data-i18n-html>
             読みデータ：KANJIDIC2 — Electronic Dictionary Research and Development Group の所有物であり、<br />
             　同グループのライセンスに従って使用しています。CC BY-SA 4.0<br />
             　<a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">https://www.edrdg.org/wiki/index.php/KANJIDIC_Project</a>
@@ -495,11 +501,11 @@
       <div id="printConfirm" class="modal" hidden>
         <div class="modal-back" id="printConfirmBack"></div>
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="printConfirmTitle" aria-describedby="printConfirmBody">
-          <h2 class="modal-title" id="printConfirmTitle">印刷する前に、確かめてください</h2>
+          <h2 class="modal-title" id="printConfirmTitle" data-i18n="confirm-title">印刷する前に、確かめてください</h2>
           <div class="modal-body" id="printConfirmBody"></div>
           <div class="modal-actions">
-            <button type="button" id="printConfirmCancel" class="primary-btn modal-main">戻って直す</button>
-            <button type="button" id="printConfirmGo" class="modal-sub">このまま印刷する</button>
+            <button type="button" id="printConfirmCancel" class="primary-btn modal-main" data-i18n="confirm-back">戻って直す</button>
+            <button type="button" id="printConfirmGo" class="modal-sub" data-i18n="confirm-go">このまま印刷する</button>
           </div>
         </div>
       </div>
@@ -512,6 +518,7 @@
     <!-- 筆順練習プリントの基礎データ（番号の座標・読み。約39KB gzip）。
          字形の線は学年別（kanji-strokes-g1.js〜g6.js）で、使う学年のぶんだけ app.js が後から読み込む -->
     <script src="kanji-strokes-base.js"></script>
+    <script src="i18n.js"></script>
     <script src="import.js"></script>
     <script src="app.js"></script>
   </body>
