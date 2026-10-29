@@ -131,6 +131,8 @@ label { display: block; }
 .status-box.is-error { background: #fde8e6; color: #8f2a22; }
 
 .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
+#countPills { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+#countPills .pill-btn { min-width: 0; width: 100%; padding-inline: 2px; white-space: nowrap; font-size: clamp(0.72rem, 2.8vw, 0.95rem); }
 .pill-btn { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); min-width: 64px; padding-inline: 16px; font-weight: 600; }
 .pill-btn:hover { box-shadow: inset 0 0 0 1px var(--ink); }
 .pill-btn.is-active { background: var(--black); color: #fff; box-shadow: none; }
@@ -240,6 +242,8 @@ label { display: block; }
 
 /* モバイル・タブレット：1カラムで「編集／プレビュー／解答」を切り替え */
 @media (max-width: 999px) {
+  html { scroll-padding-bottom: calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom, 0px)); }
+  .workspace { padding-bottom: calc(var(--tabbar-h) + 56px + env(safe-area-inset-bottom, 0px)); }
   .workspace[data-view="edit"] .pane-preview { display: none; }
   .workspace:not([data-view="edit"]) .pane-edit { display: none; }
   .save-state-mobile { display: inline-flex; }
@@ -621,8 +625,25 @@ details.tool:not([open]) { display: none; }
   white-space: nowrap;
 }
 .toast.is-warn .toast-action { background: rgba(0, 0, 0, 0.1); }
+.inline-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.inline-notice[hidden] { display: none !important; }
+.inline-notice.is-warn { background: var(--accent-soft); color: var(--accent-ink); }
+.inline-notice .soft-btn { min-height: 40px; }
 @media (min-width: 1000px) {
-  .toast { margin: 8px 16px 0; max-width: min(560px, 46vw); }
+  /* 広い画面では浮かぶ案内を出さない。左の文章に重なるため */
+  #toast { display: none !important; }
 }
 
 /* ---------- 印刷前の確認（画面内のダイアログ） ---------- */

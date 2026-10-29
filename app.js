@@ -238,9 +238,22 @@
   // ---- 通知 -----------------------------------------------------------------
 
   let toastTimer;
+  function wideScreen() {
+    return window.matchMedia('(min-width: 1000px)').matches;
+  }
   /** action があると、メッセージの横にボタンが付く（例：「プレビューを見る」） */
   function toast(message, kind, action) {
-    el.toast.textContent = message;
+    clearTimeout(toastTimer);
+    if (wideScreen()) {
+      // デスクトップでは黒い案内を浮かべない。左の文章の上に重なるため。
+      // 開いている欄の先頭に、文章として足して、下の文字を押し下げる。
+      el.toast.hidden = true;
+      showInlineNotice(message, kind, action);
+      return;
+    }
+    if (el.inlineNotice) el.inlineNotice.hidden = true;
+    el.toast.replaceChildren();
+    el.toast.append(document.createTextNode(message));
     if (action) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -252,8 +265,27 @@
     el.toast.className = 'toast' + (kind ? ' is-' + kind : '');
     el.toast.title = 'タップで消えます';
     el.toast.hidden = false;
-    clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { el.toast.hidden = true; }, action ? 7000 : 4000);
+  }
+  function showInlineNotice(message, kind, action) {
+    const host = document.querySelector('details.tool[open] .tool-body') || document.getElementById('paneEdit');
+    const note = el.inlineNotice;
+    if (!host || !note) return;
+    host.insertBefore(note, host.firstChild);
+    note.replaceChildren();
+    note.className = 'inline-notice' + (kind ? ' is-' + kind : '');
+    note.append(document.createTextNode(message));
+    if (action) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'soft-btn';
+      button.textContent = action.label;
+      button.addEventListener('click', (event) => { event.stopPropagation(); note.hidden = true; action.run(); });
+      note.appendChild(button);
+    }
+    note.hidden = false;
+    note.scrollIntoView({ block: 'nearest' });
+    toastTimer = setTimeout(() => { note.hidden = true; }, action ? 7000 : 4000);
   }
 
   // ---- 問題を作る（学年から選ぶ） ---------------------------------------------
@@ -475,10 +507,13 @@
       (recentHits ? phrase(' 以前に出した漢字を' + recentHits + '字さけきれませんでした（「くわしい設定」で記録を消せます）。',
         ' Could not avoid ' + recentHits + ' kanji used before (clear the record under More settings).') : '');
     afterQuestionsChanged();
-    toast(phrase(drawn.length + '問を作りました（合計 ' + state.questions.length + '問）',
-      'Made ' + drawn.length + ' questions (' + state.questions.length + ' total)'), '', {
-      label: phrase('プレビューを見る', 'See the preview'), run: () => setView('preview')
-    });
+    // 広い画面ではプレビューが最初から横にある。案内はボタンの下の文だけにする。
+    if (!wideScreen()) {
+      toast(phrase(drawn.length + '問を作りました（合計 ' + state.questions.length + '問）',
+        'Made ' + drawn.length + ' questions (' + state.questions.length + ' total)'), '', {
+        label: phrase('プレビューを見る', 'See the preview'), run: () => setView('preview')
+      });
+    }
   }
 
   // ---- 問題の操作 -----------------------------------------------------------
@@ -3359,7 +3394,7 @@
 
   function cacheElements() {
     [
-      'saveState', 'printBtn', 'workspace', 'toast', 'listCount', 'tabCount', 'questionList', 'paperHost', 'printArea', 'pageStyle',
+      'saveState', 'printBtn', 'workspace', 'toast', 'inlineNotice', 'listCount', 'tabCount', 'questionList', 'paperHost', 'printArea', 'pageStyle',
       'sheetViewport', 'gradeRange', 'genReplace', 'avoidRecent', 'typePills', 'typeCounts', 'drawStatus', 'printFormat', 'gradeFormatSelect', 'zoomFit', 'zoomLabel',
       'sheetInfo', 'importFile', 'historyCount', 'listNotice', 'setName', 'setList',
       'ocrProvider', 'ocrVertical', 'ocrText', 'ocrStatus', 'ocrThumb', 'ocrFile', 'ocrCamera', 'ocrCameraBtn', 'ocrPickBtn', 'ocrType',
