@@ -477,13 +477,44 @@ details.tool:not([open]) { display: none; }
 
 .list-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; padding: 12px 14px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent-ink); font-size: 0.84rem; line-height: 1.65; }
 
-.set-save { display: flex; gap: 8px; margin: 10px 0; }
-.set-save .text-input { flex: 1 1 auto; min-width: 0; }
+.saved-sets { margin-top: 18px; }
+.set-save { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+.set-save .text-input { flex: 1 1 10em; min-width: 0; }
+.set-save #saveSetBtn { flex: 0 0 auto; align-self: center; white-space: nowrap; min-width: 5em; }
+.storage-usage { margin: 0 0 10px; font-size: 0.78rem; color: var(--muted); }
 .set-list { display: grid; gap: 8px; }
-.set-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; }
-.set-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: 0.88rem; }
+.set-item { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; }
+.set-info { min-width: 0; display: flex; flex-direction: column; font-size: 0.88rem; }
+.set-info strong { overflow-wrap: anywhere; }
 .set-info span { color: var(--muted); font-size: 0.76rem; }
+.set-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; }
+.set-actions-main, .set-actions-more { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px; width: 100%; }
+.set-actions button { flex: 0 0 auto; white-space: nowrap; }
+.set-actions .danger { margin-left: 8px; }
+.set-rename { flex: 1 1 100%; display: flex; gap: 6px; }
+.set-rename .text-input { flex: 1 1 auto; min-width: 0; }
+.set-file { margin-top: 12px; }
+@media (max-width: 520px) {
+  .saved-sets .grid-two { grid-template-columns: 1fr; }
+}
 .backup { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.update-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 12px 0;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.update-notice[hidden] { display: none !important; }
+.update-notice .soft-btn { min-height: 40px; background: #fff; }
+/* 将来、広告やお知らせを足すときは、フッターの直前に全幅で1段置く。
+   下の固定ナビや、この保存した一覧とは重ねない。いまは何も置かない。 */
 
 /* ---------- プレビューのペイン ---------- */
 
@@ -539,8 +570,13 @@ details.tool:not([open]) { display: none; }
 .preview-bar .bar-field { display: inline-flex; align-items: center; gap: 6px; }
 .bar-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .lang-switch { display: inline-flex; align-items: center; padding: 3px; border-radius: 999px; background: var(--field); gap: 2px; }
-.lang-switch button { min-height: 40px; padding: 0 10px; border-radius: 999px; background: transparent; color: var(--muted); font-size: 0.75rem; font-weight: 800; }
-.lang-switch button.is-active { background: var(--black); color: #fff; }
+.lang-switch button { min-height: 40px; padding: 0 10px; border-radius: 999px; background: transparent; color: var(--muted); font-size: 0.75rem; font-weight: 800; white-space: nowrap; }
+.lang-switch button:hover,
+.lang-switch button:focus { background: transparent; color: var(--ink); }
+.lang-switch button.is-active,
+.lang-switch button.is-active:hover,
+.lang-switch button.is-active:focus,
+.lang-switch button[aria-pressed="true"] { background: var(--black); color: #fff; }
 .print-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1.2; padding-block: 6px; }
 .print-btn .print-sub { padding: 2px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); font-family: var(--font-mono); font-size: 0.64rem; font-weight: 500; }
 /* 下のバーは「編集／プレビュー／解答」の3つなので、用紙が3種類（問題用紙・解答用紙・筆順練習）

@@ -5,7 +5,7 @@
 const playwrightMod = await import(process.env.PLAYWRIGHT_PATH || 'playwright');
 const { chromium, webkit } = playwrightMod.chromium ? playwrightMod : playwrightMod.default;
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = '/workspace';
@@ -312,6 +312,25 @@ try {
       if (bar.scrollWidth > bar.clientWidth + 2) problems.push('bar-overflow');
       if (bar.getBoundingClientRect().height > 64) problems.push('bar-tall');
     }
+    const saved = document.querySelector('.saved-sets');
+    if (saved && saved.offsetParent && saved.scrollWidth > saved.clientWidth + 2) problems.push('sets-overflow');
+    const ui = document.documentElement.lang === 'en' ? 'en' : 'ja';
+    const pills = [...document.querySelectorAll('.lang-switch [data-set-lang]')];
+    const active = pills.filter((b) => b.classList.contains('is-active'));
+    if (active.length !== 1 || active[0].getAttribute('data-set-lang') !== ui) problems.push('lang-pill');
+    else {
+      const other = pills.find((b) => b !== active[0]);
+      if (other && getComputedStyle(other).backgroundColor === getComputedStyle(active[0]).backgroundColor) problems.push('lang-pill-color');
+    }
+    document.querySelectorAll('#saveSetBtn, .set-actions button, .lang-switch button, #countPills .pill-btn').forEach((el) => {
+      if (!el.offsetParent) return;
+      const label = el.textContent.replace(/\s+/g, ' ').trim();
+      if (!label) return;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const tops = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5).map((rect) => rect.top);
+      if (tops.length > 1 && Math.max(...tops) - Math.min(...tops) > 6) problems.push('btn-wrap ' + label.slice(0, 18));
+    });
     const countBtns = [...document.querySelectorAll('#countPills .pill-btn')].filter((b) => b.offsetParent);
     if (countBtns.length >= 5) {
       const tops = countBtns.map((b) => b.getBoundingClientRect().top);
@@ -367,6 +386,15 @@ try {
         questions: banks[15],
         view: 'edit'
       }, lang);
+      await ctx.addInitScript(() => {
+        localStorage.setItem('kanji-test-maker-sets', JSON.stringify([{
+          id: 'layout-set',
+          name: '2026-10-29 Grade 3 15',
+          savedAt: Date.now(),
+          questions: [{ id: 'layout-q', type: 'kaki', grade: 3, kanji: '山', reading: 'やま', sentence: '山にのぼる。', answer: '山', style: 'mas', source: 'custom', base: '山' }],
+          settings: { format: 'A4-portrait', gen: { range: '3', count: 15, types: ['kaki'], counts: { kaki: 15 } } }
+        }]));
+      });
       const page = await ctx.newPage();
       await page.goto(BASE, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('#paperHost .paper', { timeout: 20000 });
@@ -423,6 +451,182 @@ try {
   }
 
   await layoutSweep(browser, 'chromium');
+
+  async function savedSetsAndOffline() {
+    const ctx = await browser.newContext({ locale: 'ja-JP', viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(() => {
+      localStorage.setItem('kanji-test-maker-lang', 'ja');
+      localStorage.setItem('kanji-test-maker-v2', JSON.stringify({
+        format: 'A4-portrait',
+        title: '漢字テスト',
+        questions: [
+          { id: 'a', type: 'kaki', grade: 3, kanji: '山', reading: 'やま', sentence: '山にのぼる。', answer: '山', style: 'mas', source: 'custom', base: '山' },
+          { id: 'b', type: 'yomi', grade: 3, kanji: '川', reading: 'かわ', sentence: '川をわたる。', answer: 'かわ', style: 'mas', source: 'custom', base: '川' }
+        ],
+        gen: { range: '3', count: 15, types: ['kaki', 'yomi'], counts: { kaki: 8, yomi: 7 }, countsDirty: true, replace: true, avoidRecent: false }
+      }));
+    });
+    const page = await ctx.newPage();
+    page.on('dialog', (dialog) => dialog.accept());
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#saveSetBtn');
+    const pwa = await page.evaluate(() => ({
+      manifest: document.querySelector('link[rel="manifest"]')?.getAttribute('href') || '',
+      apple: document.querySelector('link[rel="apple-touch-icon"]')?.getAttribute('href') || '',
+      capable: document.querySelector('meta[name="apple-mobile-web-app-capable"]')?.content || '',
+      title: document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content || ''
+    }));
+    record('install meta for home screen', pwa.manifest === 'manifest.webmanifest' && pwa.apple === 'icons/apple-touch-icon.png' && pwa.capable === 'yes' && pwa.title === '漢字テストメーカー', JSON.stringify(pwa));
+    await page.click('#saveSetBtn');
+    await page.waitForFunction(() => document.querySelectorAll('#setList .set-item').length === 1);
+    const savedName = await page.locator('#setList .set-info strong').innerText();
+    const savedMeta = await page.locator('#setList .set-info span').innerText();
+    record('default name is date, grade, and count', /^\d{4}-\d{2}-\d{2} 小学3年 2問$/.test(savedName), savedName);
+    record('saved list shows the count', savedMeta.includes('2問'), savedMeta);
+    const usage = await page.locator('#storageUsage').innerText();
+    record('storage usage is shown', /KB/.test(usage), usage);
+    await page.click('#setList [data-set-action="rename"]');
+    await page.fill('#setList [data-set-rename-input]', '春のテスト');
+    await page.click('#setList [data-set-action="rename-save"]');
+    record('rename saved test', await page.locator('#setList .set-info strong').innerText() === '春のテスト');
+    await page.selectOption('#gradeFormatSelect', 'Letter-portrait');
+    await page.click('#setList [data-set-action="load"]');
+    await page.waitForFunction(() => document.getElementById('gradeFormatSelect').value === 'A4-portrait');
+    const reopened = await page.evaluate(() => ({
+      format: document.getElementById('gradeFormatSelect').value,
+      kanji: [...document.querySelectorAll('.qi-kanji')].map((el) => el.textContent)
+    }));
+    record('reopen restores questions and paper', reopened.format === 'A4-portrait' && reopened.kanji.includes('山') && reopened.kanji.includes('川'), JSON.stringify(reopened));
+    await page.click('#setList [data-set-action="duplicate"]');
+    await page.waitForFunction(() => document.querySelectorAll('#setList .set-item').length === 2);
+    const dup = await page.evaluate(() => ({
+      name: document.querySelector('#setList .set-info strong')?.textContent || '',
+      kaki: document.querySelector('#typePills [data-type="kaki"]')?.getAttribute('aria-pressed'),
+      yomi: document.querySelector('#typePills [data-type="yomi"]')?.getAttribute('aria-pressed'),
+      types: [...document.querySelectorAll('.question-item')].map((el) => el.textContent).join(' ')
+    }));
+    record('duplicate keeps both question types', dup.name.includes('コピー') && dup.kaki === 'true' && dup.yomi === 'true', JSON.stringify(dup));
+    await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed += 1; }; });
+    await page.click('#setList [data-set-action="print"]');
+    await page.waitForTimeout(400);
+    const printed = await page.evaluate(() => ({ n: window.__printed, confirm: !document.getElementById('printConfirm').hidden }));
+    record('reprint does not ask to retype', printed.n > 0 || printed.confirm, JSON.stringify(printed));
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('#exportSetsBtn');
+    const download = await downloadPromise;
+    const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
+    record('export saved list as JSON', exported.kind === 'sets' && exported.version === 3 && exported.sets.length === 2, 'n=' + (exported.sets || []).length);
+    writeFileSync('/tmp/kanji-sets.json', JSON.stringify(exported));
+    await page.evaluate(() => localStorage.removeItem('kanji-test-maker-sets'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#importSetsBtn');
+    await page.setInputFiles('#importSetsFile', '/tmp/kanji-sets.json');
+    await page.waitForFunction(() => document.querySelectorAll('#setList .set-item').length === 2);
+    record('import saved list', true);
+    const beforeDelete = await page.locator('#setList .set-item').count();
+    await page.locator('#setList [data-set-action="delete"]').first().click();
+    await page.waitForFunction((n) => document.querySelectorAll('#setList .set-item').length === n - 1, beforeDelete);
+    record('delete saved test', true);
+    await page.evaluate(() => {
+      const orig = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === 'kanji-test-maker-sets') throw new DOMException('quota', 'QuotaExceededError');
+        return orig.call(this, key, value);
+      };
+    });
+    await page.fill('#setName', '入らないセット');
+    await page.click('#saveSetBtn');
+    await page.waitForFunction(() => {
+      const note = document.getElementById('inlineNotice');
+      return note && !note.hidden && note.textContent.includes('いっぱい');
+    });
+    const still = await page.locator('#setList .set-info strong').allInnerTexts();
+    record('quota error keeps the list and explains', !still.includes('入らないセット'), still.join(','));
+    await page.evaluate(() => document.getElementById('savedSets').scrollIntoView({ block: 'start' }));
+    await page.screenshot({ path: path.join(SHOT, 'saved_list_ja_desktop.png') });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.evaluate(() => document.getElementById('savedSets').scrollIntoView({ block: 'start' }));
+    await page.screenshot({ path: path.join(SHOT, 'saved_list_ja_phone.png') });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.click('[data-set-lang="en"]');
+    await page.waitForFunction(() => document.querySelector('#savedSets h2')?.textContent === 'My saved tests');
+    record('saved list has English labels', (await page.locator('#setList [data-set-action="duplicate"]').first().innerText()) === 'Duplicate and edit');
+    const pill = await page.evaluate(() => {
+      const active = document.querySelector('.lang-switch [data-set-lang].is-active');
+      return active ? active.getAttribute('data-set-lang') : '';
+    });
+    record('English pill is the active language', pill === 'en', pill);
+    await page.click('#sheetSeg [data-sheet="question"]');
+    await page.waitForSelector('#paperHost .q-sec');
+    const section = await page.evaluate(() => {
+      const el = document.querySelector('#paperHost .q-sec');
+      const q = el.closest('.q').getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        text: el.innerText.replace(/\s+/g, ' ').trim(),
+        overflow: el.scrollWidth > el.clientWidth + 2 || r.left < q.left - 1 || r.right > q.right + 1
+      };
+    });
+    record('English section label fits the column', /Reading/.test(section.text) && !/Next Read/.test(section.text) && section.overflow === false, JSON.stringify(section));
+    await page.locator('#paperHost .paper').first().screenshot({ path: path.join(SHOT, 'english_section_label.png') });
+    await page.evaluate(() => document.getElementById('savedSets').scrollIntoView({ block: 'start' }));
+    await page.screenshot({ path: path.join(SHOT, 'saved_list_en_desktop.png') });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.evaluate(() => document.getElementById('savedSets').scrollIntoView({ block: 'start' }));
+    await page.screenshot({ path: path.join(SHOT, 'saved_list_en_phone.png') });
+    await ctx.close();
+
+    const old = await browser.newContext({ locale: 'ja-JP', viewport: { width: 1280, height: 900 } });
+    await old.addInitScript(() => {
+      localStorage.setItem('kanji-test-maker-lang', 'ja');
+      localStorage.setItem('kanji-test-maker-sets', JSON.stringify([{
+        id: 'old-set',
+        name: '昔のセット',
+        savedAt: 1,
+        questions: [{ id: 'old-q', type: 'yomi', grade: 3, kanji: '山', reading: 'やま', sentence: '山にのぼる。', answer: 'やま', style: 'mas', source: 'custom', base: '山' }],
+        settings: { format: 'Letter-portrait' }
+      }]));
+    });
+    const oldPage = await old.newPage();
+    oldPage.on('dialog', (dialog) => dialog.accept());
+    await oldPage.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await oldPage.waitForSelector('#setList [data-set-action="load"]');
+    record('old saved set is listed', (await oldPage.locator('#setList .set-info strong').innerText()) === '昔のセット');
+    await oldPage.click('#setList [data-set-action="load"]');
+    await oldPage.waitForFunction(() => document.querySelector('.qi-kanji')?.textContent === '山');
+    const oldInfo = await oldPage.evaluate(() => ({
+      format: document.getElementById('gradeFormatSelect').value,
+      yomi: document.querySelector('#typePills [data-type="yomi"]')?.getAttribute('aria-pressed')
+    }));
+    record('old saved set reopens with its type and paper', oldInfo.format === 'Letter-portrait' && oldInfo.yomi === 'true', JSON.stringify(oldInfo));
+    await old.close();
+
+    const swCtx = await browser.newContext({ locale: 'ja-JP', viewport: { width: 1280, height: 900 } });
+    const swPath = path.join(ROOT, 'sw.js');
+    const swOriginal = readFileSync(swPath, 'utf8');
+    const swPage = await swCtx.newPage();
+    try {
+      await swPage.goto(BASE, { waitUntil: 'domcontentloaded' });
+      await swPage.waitForSelector('#generateBtn');
+      await swPage.waitForFunction(() => navigator.serviceWorker.ready.then(() => true), null, { timeout: 20000 });
+      await swPage.reload({ waitUntil: 'domcontentloaded' });
+      await swPage.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout: 20000 });
+      record('service worker controls the page', true);
+      await swCtx.setOffline(true);
+      await swPage.reload({ waitUntil: 'domcontentloaded' });
+      await swPage.waitForSelector('#generateBtn', { timeout: 15000 });
+      record('offline reload shows the app', (await swPage.locator('#generateBtn').innerText()) === '問題を作る');
+      await swCtx.setOffline(false);
+      writeFileSync(swPath, swOriginal.replace('2026-10-29-sets-1', '2026-10-29-sets-2'));
+      await swPage.evaluate(() => navigator.serviceWorker.getRegistration().then((reg) => reg && reg.update()));
+      await swPage.waitForSelector('#updateNotice:not([hidden])', { timeout: 20000 });
+      record('new version notice appears', true);
+    } finally {
+      writeFileSync(swPath, swOriginal);
+      await swCtx.close();
+    }
+  }
+  await savedSetsAndOffline();
 
   // --- print PDFs ---
   async function printCase(engineBrowser, engine, lang, format, questions, kind) {

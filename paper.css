@@ -287,8 +287,10 @@
 .q-sec {
   position: absolute; top: 0.1em; left: 0; right: 0;
   writing-mode: horizontal-tb; white-space: nowrap;
-  font-size: var(--sec-f); line-height: 1.3; font-weight: 700; text-align: center;
-  border-bottom: 0.35mm solid #111; padding: 0 0 0.1em;
+  font-size: var(--sec-f); line-height: 1.15; font-weight: 700; text-align: center;
+  border-bottom: 0.35mm solid #111; padding: 0 0.4mm 0.1em;
+  overflow: hidden;
+  letter-spacing: 0;
 }
 
 /* ---------- 筆順練習プリント（横書き。1字1行） ----------
