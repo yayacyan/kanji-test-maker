@@ -485,6 +485,17 @@ details.tool:not([open]) { display: none; }
 .count-badge { display: inline-block; min-width: 30px; margin-left: 6px; padding: 1px 10px; border-radius: 4px; background: var(--ink); color: #fff; text-align: center; font-family: var(--font-mono); font-size: 0.8rem; vertical-align: 3px; }
 .list-tools { display: flex; gap: 6px; flex-wrap: wrap; }
 .bulk-type { display: block; margin: 0 0 12px; }
+.bulk-type select:disabled { color: var(--muted); cursor: default; }
+.bulk-type-note {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: var(--primary-soft);
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  box-shadow: none;
+}
 
 .inline-action {
   min-width: 48px;

@@ -357,10 +357,13 @@
                 <button type="button" id="clearAllBtn" class="inline-action danger" data-i18n="clear-all">全部消す</button>
               </div>
             </div>
-            <label class="bulk-type">
-              <span class="field-label" data-i18n="bulk-change">全部の問題の種類を、まとめて変える</span>
-              <select id="bulkTypeSelect" class="select-input" aria-label="全部の問題の種類をまとめて変える"></select>
-            </label>
+            <div class="bulk-type">
+              <label>
+                <span class="field-label" data-i18n="bulk-change">全部の問題の種類を、まとめて変える</span>
+                <select id="bulkTypeSelect" class="select-input"></select>
+              </label>
+              <p id="bulkTypeNote" class="bulk-type-note" role="status" hidden></p>
+            </div>
             <div id="listNotice" class="list-notice" role="status" hidden></div>
             <div id="questionList" class="question-list"></div>
 
