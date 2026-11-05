@@ -310,7 +310,13 @@ label { display: block; }
   font-feature-settings: "palt";
   text-wrap: balance;
 }
-.hero-line { display: block; }
+/* 広い画面の左カラムは最大400px。見本の横で、見出しの1行は約292px。
+   全角12字（「縦書きの漢字テストを、」）が1行に残る大きさにする。
+   字幅が狭いフォントだと 1.7rem でも収まるが、全角ゴシックだと折り返して hero-wrap になる。 */
+@media (min-width: 1000px) {
+  .hero h2 { font-size: 1.375rem; text-wrap: wrap; }
+}
+.hero-line { display: block; text-wrap: wrap; }
 .hero-sub { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.75; max-width: 34em; }
 .hero .save-state { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
 
