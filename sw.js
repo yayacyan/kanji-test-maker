@@ -1,6 +1,6 @@
 /* 漢字テストメーカーのオフライン用。バージョンが変わると、古い保存分は消して新しいファイルを取りにいく。
    置いてある場所（/ でも /kanji-test-maker/ でも）からの相対パスだけを使う。 */
-const VERSION = '2026-11-05-notebook-1';
+const VERSION = '2026-11-05-notebook-2';
 const CACHE = 'kanji-test-maker-' + VERSION;
 const SHELL = [
   './',

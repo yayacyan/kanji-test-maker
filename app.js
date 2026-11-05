@@ -519,6 +519,7 @@
   // ---- 問題の操作 -----------------------------------------------------------
 
   function afterQuestionsChanged() {
+    ui.bulkApply = null;
     renderList();
     renderPaper();
     updateCounts();
@@ -531,8 +532,47 @@
     el.tabCount.textContent = n ? '（' + n + '）' : '';
   }
 
+  /** 一覧が全部同じ種類ならその種類。混ざっていれば mixed。空なら ''。 */
+  function sharedQuestionType(questions) {
+    if (!questions.length) return '';
+    const type = questions[0].type;
+    return questions.every((q) => q.type === type) ? type : 'mixed';
+  }
+
+  function bulkApplyText() {
+    const info = ui.bulkApply;
+    if (!info) return '';
+    const name = I18n.typeLabel(info.type);
+    let msg = I18n.t('bulk-changed', { n: info.changed, type: name });
+    if (info.skipped) msg += I18n.t('bulk-skipped', { n: info.skipped });
+    return msg;
+  }
+
+  /** まとめて変える欄を、今の問題の種類に合わせる。選んだあとも種類が残る。 */
+  function syncBulkTypeSelect() {
+    const sel = $('bulkTypeSelect');
+    if (!sel) return;
+    const shared = sharedQuestionType(state.questions);
+    const parts = [];
+    if (!state.questions.length) parts.push('<option value="">' + esc(I18n.t('bulk-choose')) + '</option>');
+    else if (shared === 'mixed') parts.push('<option value="mixed">' + esc(I18n.t('bulk-mixed')) + '</option>');
+    else if (shared === 'free') parts.push('<option value="free">' + esc(I18n.typeLabel('free')) + '</option>');
+    TYPES.filter((t) => t !== 'free').forEach((t) => {
+      parts.push('<option value="' + t + '">' + esc(I18n.typeLabel(t)) + '</option>');
+    });
+    sel.innerHTML = parts.join('');
+    sel.value = shared || '';
+    sel.disabled = state.questions.length === 0;
+    const note = $('bulkTypeNote');
+    if (!note) return;
+    const text = bulkApplyText();
+    note.textContent = text;
+    note.hidden = !text;
+  }
+
   /** 全部の問題の種類をまとめて変える（自由入力は文だけの問題なので、そのまま） */
   function changeAllTypes(type) {
+    if (!type || type === 'mixed' || type === 'free') { syncBulkTypeSelect(); return; }
     let changed = 0;
     let skipped = 0;
     state.questions.forEach((q) => {
@@ -543,12 +583,15 @@
       if (!q.answer || q.answer === oldDefault) q.answer = KI.defaultAnswer(q, type);
       changed += 1;
     });
-    if (!changed && !skipped) { toast('変える問題がありません', 'warn'); return; }
+    if (!changed && !skipped) {
+      toast(I18n.t('bulk-none'), 'warn');
+      syncBulkTypeSelect();
+      return;
+    }
     afterQuestionsChanged();
-    toast(phrase(changed + '問を「' + TYPE_LABELS[type] + '」に変えました',
-      'Changed ' + changed + ' to “' + I18n.typeLabel(type) + '”') +
-      (skipped ? phrase('（' + skipped + '問は、漢字のあとにひらがなが続く語ではないので、そのままです）',
-        ' (' + skipped + ' left as they are, because they are not a kanji plus a hiragana ending)') : ''), skipped ? 'warn' : '');
+    ui.bulkApply = { type: type, changed: changed, skipped: skipped };
+    syncBulkTypeSelect();
+    toast(bulkApplyText(), skipped ? 'warn' : '');
   }
 
   function findQuestion(id) { return state.questions.find((q) => q.id === id); }
@@ -706,6 +749,7 @@
 
   function renderList() {
     updateCounts();
+    syncBulkTypeSelect();
     if (!state.questions.length) {
       el.questionList.innerHTML = '<div class="empty-note">問題がまだありません。上の「学年から問題を作る」「写真・AIから取り込む」「自分で問題を作る」から追加できます。</div>';
       return;
@@ -3340,6 +3384,7 @@
       Object.assign(state, defaultState());
       applyStored(source);
       ui.openId = null;
+      ui.bulkApply = null;
       syncControls();
       applyView();
       [ocrImporter, aiImporter, bulkImporter].forEach((imp) => imp.render());
@@ -3561,8 +3606,8 @@
     });
     $('bulkTypeSelect').addEventListener('change', (event) => {
       const type = event.target.value;
-      event.target.value = '';
-      if (type) changeAllTypes(type);
+      if (!type || type === 'mixed' || type === 'free') { syncBulkTypeSelect(); return; }
+      changeAllTypes(type);
     });
     $('clearAllBtn').addEventListener('click', () => {
       if (!state.questions.length) return;
@@ -3690,8 +3735,6 @@
       fillSelect(el[id], Object.keys(importTypes), importTypes);
       el[id].value = keep[id === 'ocrType' ? 'ocr' : id === 'aiType' ? 'ai' : 'bulk'];
     });
-    $('bulkTypeSelect').innerHTML = '<option value="">' + phrase('種類を選ぶ…', 'Choose a type…') + '</option>' +
-      TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">' + phrase('すべて「' + TYPE_LABELS[t] + '」にする', 'Make all “' + I18n.typeLabel(t) + '”') + '</option>').join('');
     [el.gradeFormatSelect, el.strokeFormatSelect].forEach((sel) => {
       if (!sel) return;
       fillSelect(sel, FORMAT_ORDER, formatChoiceMap());
@@ -3728,8 +3771,6 @@
     fillSelect(el.customType, TYPES, typeLabelsMap());
     el.customType.addEventListener('change', applyCustomHint);
     applyCustomHint();
-    $('bulkTypeSelect').innerHTML = '<option value="">' + phrase('種類を選ぶ…', 'Choose a type…') + '</option>' +
-      TYPES.filter((t) => t !== 'free').map((t) => '<option value="' + t + '">' + phrase('すべて「' + TYPE_LABELS[t] + '」にする', 'Make all “' + I18n.typeLabel(t) + '”') + '</option>').join('');
     fillSelect(el.customStyle, STYLES, styleLabelsMap());
     el.customStyle.addEventListener('change', refreshTypePickers);
     const importTypes = { auto: I18n.typeLabel('auto') };
