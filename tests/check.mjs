@@ -662,7 +662,7 @@ try {
       await swPage.waitForSelector('#generateBtn', { timeout: 15000 });
       record('offline reload shows the app', (await swPage.locator('#generateBtn').innerText()) === '問題を作る');
       await swCtx.setOffline(false);
-      writeFileSync(swPath, swOriginal.replace('2026-10-29-sets-1', '2026-10-29-sets-2'));
+      writeFileSync(swPath, swOriginal.replace('2026-11-05-notebook-1', '2026-11-05-notebook-2'));
       await swPage.evaluate(() => navigator.serviceWorker.getRegistration().then((reg) => reg && reg.update()));
       await swPage.waitForSelector('#updateNotice:not([hidden])', { timeout: 20000 });
       record('new version notice appears', true);
