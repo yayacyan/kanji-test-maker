@@ -17,13 +17,13 @@
       .cl-sub { margin: 0 0 22px; color: var(--muted); font-size: 0.92rem; }
       .cl-langs { display: flex; gap: 8px; margin-bottom: 26px; }
       .cl-lang-btn {
-        min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line);
+        min-height: 44px; padding: 0 18px; border-radius: 4px; border: 1px solid var(--line);
         background: var(--surface); color: var(--muted); font-weight: 700; font-size: 0.92rem; cursor: pointer;
       }
-      .cl-lang-btn.is-active { background: var(--black); color: #fff; border-color: var(--black); }
+      .cl-lang-btn.is-active { background: var(--primary); color: #fff; border-color: var(--primary); }
       .cl-entry { padding: 18px 0; border-top: 1px solid var(--line); }
       .cl-entry:first-of-type { border-top: none; }
-      .cl-date { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft); display: inline-block; padding: 2px 10px; border-radius: 999px; margin-bottom: 8px; }
+      .cl-date { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; color: var(--ink); background: var(--primary-soft); display: inline-block; padding: 2px 10px; border-radius: 4px; margin-bottom: 8px; }
       .cl-entry h2 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 800; }
       .cl-entry ul { margin: 0; padding-left: 1.2em; color: var(--ink); line-height: 1.75; }
       .cl-entry ul li + li { margin-top: 4px; }
@@ -64,6 +64,16 @@
 
       <!-- 日本語 -->
       <div class="cl-lang-block" data-lang-block="ja">
+        <div class="cl-entry">
+          <span class="cl-date">2026-11-05</span>
+          <h2>画面を練習簿の見た目にしました</h2>
+          <ul>
+            <li>背景を白に、文字と線を墨色にしました。角を小さくし、やわらかい影をなくしました。</li>
+            <li>上のバーと、下の「編集／プレビュー／解答」は、浮いた丸い形ではなく、線で区切った平らな形です。</li>
+            <li>主なボタンは緑色です。赤い色は、印刷する用紙の解答に残しています。画面のボタンや案内には使いません。</li>
+            <li>作れるものと、操作のしかたは、今までと同じです。</li>
+          </ul>
+        </div>
         <div class="cl-entry">
           <span class="cl-date">2026-10-29</span>
           <h2>作った問題を残して、ネットがなくても開けるように</h2>
@@ -163,6 +173,16 @@
       <!-- English -->
       <div class="cl-lang-block" data-lang-block="en">
         <div class="cl-entry">
+          <span class="cl-date">2026-11-05</span>
+          <h2>The screen now looks like a practice notebook</h2>
+          <ul>
+            <li>The page is white, with ink-black text and lines. Corners are smaller, and the soft shadows are gone.</li>
+            <li>The top bar and the Edit / Preview / Answers switch sit flat, separated by a hairline, instead of floating as pills.</li>
+            <li>The main buttons are green. Red stays on the answers of the printed sheet, and is no longer used for buttons or notices.</li>
+            <li>What you can make, and how you use it, stays the same.</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
           <span class="cl-date">2026-10-29</span>
           <h2>Save tests on this device, and open them offline</h2>
           <ul>
@@ -260,6 +280,16 @@
 
       <!-- 繁體中文 -->
       <div class="cl-lang-block" data-lang-block="zh">
+        <div class="cl-entry">
+          <span class="cl-date">2026-11-05</span>
+          <h2>畫面改成練習簿的樣子</h2>
+          <ul>
+            <li>背景改為白色，文字與線條改為墨色。圓角變小，柔和的陰影拿掉了。</li>
+            <li>上方列，以及下方的「編輯／預覽／解答」，改成以細線區隔的平面，不再是浮起的膠囊。</li>
+            <li>主要按鈕改為綠色。紅色只留在列印紙上的解答。按鈕與提示不再用紅色。</li>
+            <li>能做的內容與操作方式維持不變。</li>
+          </ul>
+        </div>
         <div class="cl-entry">
           <span class="cl-date">2026-10-29</span>
           <h2>把做好的題目留在這台裝置，離線也能打開</h2>
