@@ -32,7 +32,7 @@
     'mode-photo': { ja: '写真から', en: 'From a photo' },
     'mode-write': { ja: 'AIに作ってもらう', en: 'Ask an AI to write' },
     'step1-title': { ja: '1. お願い文をコピー', en: '1. Copy the request' },
-    'step1-hint': { ja: '中身を見てからコピーできます。写真を使うときは、名前・顔・関係のない背景を先に切り取ってください。切り取りは、この端末の中だけで行います。', en: 'You can read it before you copy. If you use a photo, crop out the name, face, and unrelated background first. Cropping stays on this device.' },
+    'step1-hint': { ja: '中身を見てからコピーできます。写真を送る前に、端末の写真アプリで、名前・顔・関係のない背景を切り取ってください。', en: 'You can read it before you copy. Before you send a photo, crop out the name, face, and unrelated background in your photo app.' },
     'step2-title': { ja: '2. ChatGPTかGeminiを開く', en: '2. Open ChatGPT or Gemini' },
     'open-chatgpt': { ja: 'ChatGPTを開く', en: 'Open ChatGPT' },
     'open-gemini': { ja: 'Geminiを開く', en: 'Open Gemini' },

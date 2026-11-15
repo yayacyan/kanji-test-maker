@@ -133,6 +133,32 @@ export async function runPrAChecks({ browser, record, base }) {
     /not sent to this site/i.test(english) && /ChatGPT/.test(english) && /Gemini/.test(english),
     english.slice(0, 80));
 
+  const hint = await page.locator('[data-i18n="step1-hint"]').innerText();
+  record('step 1 tells you to crop in the photo app',
+    hint.includes('photo app') && !/stays on this device/i.test(hint), hint);
+
   record('the create flow has no page errors', errors.length === 0, errors.join('; '));
   await ctx.close();
+
+  const phone = await browser.newContext({ locale: 'ja-JP', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const phonePage = await phone.newPage();
+  await phonePage.goto(base);
+  await phonePage.waitForSelector('#generateBtn');
+  await phonePage.click('[data-goto="import"]');
+  await phonePage.waitForSelector('#aiPrivacy');
+  const gap = await phonePage.evaluate(() => {
+    const bar = document.querySelector('.view-tabs').getBoundingClientRect();
+    const privacy = document.getElementById('aiPrivacy').getBoundingClientRect();
+    const hint = document.querySelector('[data-i18n="step1-hint"]').innerText;
+    return { gap: Math.round(bar.top - privacy.bottom), hint };
+  });
+  record('privacy box clears the tab bar on a 390x844 phone', gap.gap >= 24, JSON.stringify(gap));
+  record('japanese step 1 advises the photo app', gap.hint.includes('写真アプリ') && !gap.hint.includes('この端末の中だけで行います'), gap.hint);
+  await phonePage.evaluate(() => {
+    const step = document.querySelector('.ai-step');
+    const header = document.querySelector('.topbar').getBoundingClientRect().height;
+    window.scrollTo(0, step.getBoundingClientRect().top + window.scrollY - header - 8);
+  });
+  await phonePage.screenshot({ path: path.join(ARTIFACTS, 'pr-a-step1-iphone.png') });
+  await phone.close();
 }

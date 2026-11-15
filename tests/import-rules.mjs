@@ -178,6 +178,15 @@ export function runImportRuleChecks(record) {
   const zh = block('zh');
   record('changelog ja covers external AI and removed in-browser OCR',
     ja.includes('2026-11-15') && /Tesseract|ブラウザ内/.test(ja) && ja.includes('ChatGPT') && ja.includes('Gemini') && ja.includes('手書き') && ja.includes('赤'));
+  record('changelog ja does not call the built-in list 題庫',
+    !ja.includes('題庫') && ja.includes('内蔵の漢字リスト'));
+  const stepHintJa = files.find((f) => f.name === 'i18n.js').text;
+  const stepHintHtml = files.find((f) => f.name === 'index.html').text;
+  record('step 1 does not claim this site crops the photo',
+    !stepHintJa.includes('この端末の中だけで行います') && !stepHintJa.includes('Cropping stays on this device') &&
+    !stepHintHtml.includes('この端末の中だけで行います') && !changelog.includes('この端末の中だけで行います') &&
+    !changelog.includes('Cropping stays on this device') && !changelog.includes('只在這台裝置上裁') &&
+    stepHintJa.includes('写真アプリ') && stepHintJa.includes('photo app') && stepHintHtml.includes('写真アプリ'));
   record('changelog en covers external AI and removed in-browser OCR',
     en.includes('2026-11-15') && en.includes('Tesseract') && en.includes('ChatGPT') && en.includes('Gemini') && /handwriting/i.test(en) && /red/i.test(en));
   record('changelog zh covers external AI and removed in-browser OCR',
