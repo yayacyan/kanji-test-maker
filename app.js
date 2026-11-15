@@ -1,7 +1,7 @@
 /*
  * 漢字テストメーカー — 画面ロジック
  *   データ: kanji-db.js（学年別漢字配当表ベースの問題データ）
- *   取り込み・OCR: import.js（KanjiImport）
+ *   取り込み: import.js（KanjiImport）。写真の読み取りは行わない
  *
  * 問題の形（localStorage にもこの形で保存）:
  *   { id, type, grade, kanji, reading, sentence, answer, style, source, base }
@@ -93,13 +93,10 @@
       history: [],
       openTool: 'draw',
       gen: { range: '1-6', count: 10, types: ['kaki'], counts: {}, countsDirty: false, replace: true, avoidRecent: false },
-      ocrProvider: 'tesseract',
-      ocrVertical: false,
-      ocrText: '',
-      aiText: '',
+      pasteText: '',
       aiTheme: '',
-      bulkText: '',
-      importTypes: { ocr: 'auto', ai: 'auto', bulk: 'auto' },
+      promptMode: 'photo',
+      importTypes: { paste: 'auto' },
       // 筆順練習プリント（問題用紙とは別の用紙。設定もここに持つ）
       strokeText: '',
       strokeTitle: 'かん字の ひつじゅん れんしゅう',
@@ -150,10 +147,12 @@
     if (source === 'generated') source = 'bank';
     if (!SOURCE_LABELS[source]) source = 'custom';
     const gradeNum = Number(raw.grade);
+    const grade = gradeNum >= 1 && gradeNum <= 6 ? gradeNum : '';
     return {
       id: raw.id || uid(),
       type,
-      grade: gradeNum >= 1 && gradeNum <= 6 ? gradeNum : '',
+      grade,
+      gradeInferred: !!(raw.gradeInferred && grade),
       kanji: str(raw.kanji),
       reading: str(raw.reading),
       sentence: str(raw.sentence),
@@ -189,6 +188,10 @@
     if (state.view === 'answer' && state.sheetMode !== 'answer') state.sheetMode = 'answer';
     if (!/^[1-6]$/.test(String(state.strokePickGrade))) state.strokePickGrade = '1';
     state.strokeText = str(state.strokeText);
+    if (state.promptMode !== 'photo' && state.promptMode !== 'write') state.promptMode = 'photo';
+    const incomingTypes = data.importTypes || {};
+    state.importTypes = { paste: incomingTypes.paste || incomingTypes.bulk || incomingTypes.ai || incomingTypes.ocr || 'auto' };
+    if (!str(state.pasteText)) state.pasteText = str(data.aiText || data.bulkText || data.ocrText || '');
   }
 
   /** 戻り値: true = 保存データあり（初回ではない） */
@@ -207,8 +210,7 @@
           questions: old.questions,
           format: old.printFormat,
           sheetMode: old.sheetMode,
-          ocrText: old.ocrText,
-          aiText: old.aiText,
+          pasteText: old.aiText || old.ocrText || '',
           gen: {
             range: old.gradeRange,
             count: old.questionCount,
@@ -663,7 +665,11 @@
 
   // ---- 問題一覧（編集） -----------------------------------------------------
 
-  function gradeText(q) { return q.grade ? (uiLang() === 'en' ? 'Gr. ' + q.grade : '小' + q.grade) : '—'; }
+  function gradeText(q) {
+    if (!q.grade) return '—';
+    const base = uiLang() === 'en' ? 'Gr. ' + q.grade : '小' + q.grade;
+    return q.gradeInferred ? base + (uiLang() === 'en' ? ' (highest)' : '（高い字）') : base;
+  }
   function typeLabelsMap() {
     const labels = { auto: I18n.typeLabel('auto') };
     TYPES.forEach((t) => { labels[t] = I18n.typeLabel(t); });
@@ -771,7 +777,10 @@
     const q = findQuestion(card.dataset.id);
     if (!q) return;
     if (field === 'type') return; // change イベントで処理
-    q[field] = field === 'grade' ? (Number(event.target.value) || '') : event.target.value;
+    if (field === 'grade') {
+      q.grade = Number(event.target.value) || '';
+      q.gradeInferred = false;
+    } else q[field] = event.target.value;
     refreshCard(card, q);
     schedulePaper();
     save();
@@ -2643,7 +2652,48 @@
     save();
   }
 
-  // ---- 取り込み（OCR・AI・まとめて貼り付け） --------------------------------
+  // ---- 取り込み（写真・AI と、まとめて貼り付けは同じ欄） ----------------
+
+  function importParseOptions() {
+    const lines = String(el.pasteText && el.pasteText.value || '').split(/\n/).filter((line) => line.trim()).length;
+    return {
+      type: el.pasteType ? el.pasteType.value : 'auto',
+      source: 'paste',
+      lookup: lookupEntry,
+      format: state.format,
+      questionCount: Math.max(1, state.questions.length + lines),
+      headMm: (state.showClass || state.showDate) ? 22 : 15
+    };
+  }
+
+  function flagText(flag) {
+    if (flag.kind === 'duplicate') return {
+      label: phrase('重複', 'Duplicate'),
+      reason: phrase('同じ漢字と読みの問題が、もう一つあります。', 'Another row has the same kanji and reading.')
+    };
+    if (flag.kind === 'long' && flag.part === 'answer') return {
+      label: phrase('長すぎ', 'Too long'),
+      reason: phrase('答えが' + flag.length + '字あります。この種類のマスは' + flag.limit + '字までです。',
+        'The answer is ' + flag.length + ' characters. This type of box holds ' + flag.limit + '.')
+    };
+    if (flag.kind === 'long') return {
+      label: phrase('長すぎ', 'Too long'),
+      reason: phrase('例文が' + flag.length + '字あります。いまの用紙では、文字を' + flag.fontMm + 'mmまで小さくしても約' + flag.limit + '字までです。',
+        'The sentence is ' + flag.length + ' characters. On this paper, about ' + flag.limit + ' fit even at ' + flag.fontMm + ' mm.')
+    };
+    return {
+      label: phrase('形式', 'Format'),
+      reason: flag.detail || phrase('この行は、問題の形として読み取れません。', 'This line is not in a question shape.')
+    };
+  }
+
+  function gradeChip(item) {
+    if (item._skip) return '';
+    if (!item.grade) return '<span class="ip-grade">—</span>';
+    const label = (uiLang() === 'en' ? 'Gr. ' + item.grade : '小' + item.grade) +
+      (item.gradeInferred ? (uiLang() === 'en' ? ' (highest)' : '（高い字）') : '');
+    return '<span class="ip-grade">' + esc(label) + '</span>';
+  }
 
   function createImporter(cfg) {
     const textarea = $(cfg.textId);
@@ -2652,53 +2702,63 @@
     const overrides = new Map();
     let parsed = { items: [], skipped: [] };
 
-    const included = (item) => (overrides.has(item._line) ? overrides.get(item._line) : !item._weak);
+    const included = (item) => {
+      if (item._skip) return false;
+      if (overrides.has(item._key)) return overrides.get(item._key);
+      return !item._exclude;
+    };
 
     function render() {
-      parsed = KI.parseBulk(textarea.value, { type: typeSelect.value, source: cfg.source, lookup: lookupEntry });
+      parsed = KI.parseBulk(textarea.value, importParseOptions());
       if (parsed.error) {
         preview.innerHTML = '<div class="ip-summary is-error">' + esc(parsed.error) + '</div>';
         return;
       }
-      if (!parsed.items.length && !parsed.skipped.length) { preview.innerHTML = ''; return; }
+      if (!parsed.items.length) { preview.innerHTML = ''; return; }
       const active = parsed.items.filter(included).length;
       const rows = parsed.items.map((item, i) => {
         const main = item.kanji ? esc(item.kanji) + (item.reading ? '（' + esc(item.reading) + '）' : '') : '';
-        const warns = KI.checkQuestion(item);
+        const warns = item._skip ? [] : KI.checkQuestion(item);
         const note = item._note || (warns.length ? warns[0] : '');
-        return '<li class="ip-item' + (included(item) ? '' : ' is-off') + '"><label>' +
-          '<input type="checkbox" data-idx="' + i + '"' + (included(item) ? ' checked' : '') + '>' +
-          '<span class="chip type-' + item.type + '">' + esc(TYPE_LABELS[item.type]) + '</span>' +
+        const flags = (item.flags || []).map(flagText);
+        const flagHtml = flags.map((flag) => '<span class="ip-flag">' + esc(flag.label) + '</span><span class="ip-flag-reason">' + esc(flag.reason) + '</span>').join('');
+        const box = item._skip ? '' : '<input type="checkbox" data-idx="' + i + '"' + (included(item) ? ' checked' : '') + '>';
+        return '<li class="ip-item' + (included(item) ? '' : ' is-off') + ((item.flags || []).length ? ' is-flagged' : '') + '"><label>' +
+          box +
+          gradeChip(item) +
+          (item._skip ? '' : '<span class="chip type-' + item.type + '">' + esc(TYPE_LABELS[item.type]) + '</span>') +
           (main ? '<span class="ip-main">' + main + '</span>' : '') +
-          (item.sentence ? '<span class="ip-sentence">' + esc(item.sentence) + '</span>' : '') +
-          (item._enriched ? '<span class="ip-auto">よみがな・例文は自動で入れました</span>' : '') +
-          (note ? '<span class="ip-warn">⚠ ' + esc(note) + '</span>' : '') +
+          (item.sentence ? '<span class="ip-sentence">' + esc(Array.from(item.sentence).length > 42 ? Array.from(item.sentence).slice(0, 42).join('') + '…' : item.sentence) + '</span>' : '') +
+          (item._enriched ? '<span class="ip-auto">' + esc(phrase('よみがな・例文は自動で入れました', 'Reading and sentence were filled in')) + '</span>' : '') +
+          flagHtml +
+          (note && !flags.length ? '<span class="ip-warn">⚠ ' + esc(note) + '</span>' : '') +
           '</label></li>';
       }).join('');
-      const skipped = parsed.skipped.map((s) => '<li class="ip-skip">読み取れなかった行：' + esc(s.line) + '（' + esc(s.reason) + '）</li>').join('');
-      preview.innerHTML = '<div class="ip-summary">' + parsed.items.length + '問見つかりました。<strong>追加する問題：' + active + '問</strong>' +
-        '<span class="ip-note">（追加したくない問題は、チェックを外します）</span></div><ul class="ip-list">' + rows + skipped + '</ul>';
+      preview.innerHTML = '<div class="ip-summary">' + parsed.items.filter((item) => !item._skip).length + phrase('問見つかりました。', ' found. ') +
+        '<strong>' + phrase('追加する問題：', 'Adding ') + active + phrase('問', '') + '</strong>' +
+        '<span class="ip-note">' + esc(phrase('（印の付いた問題は、最初は追加しません。追加するときはチェックを入れます）', '(Marked rows stay out until you check them)')) + '</span></div><ul class="ip-list">' + rows + '</ul>';
     }
 
     preview.addEventListener('change', (event) => {
       const idx = event.target.dataset.idx;
       if (idx === undefined) return;
-      overrides.set(parsed.items[Number(idx)]._line, event.target.checked);
+      overrides.set(parsed.items[Number(idx)]._key, event.target.checked);
       render();
     });
     textarea.addEventListener('input', () => { cfg.onText(textarea.value); render(); });
-    typeSelect.addEventListener('change', () => { state.importTypes[cfg.key] = typeSelect.value; save(); render(); });
+    typeSelect.addEventListener('change', () => { state.importTypes.paste = typeSelect.value; save(); render(); });
     $(cfg.addId).addEventListener('click', () => {
       const chosen = parsed.items.filter(included);
       if (!chosen.length) {
         toast(parsed.error || (parsed.items.length
-          ? '追加する問題にチェックが入っていません。'
-          : '問題として読み取れる行がありません。1行に1問、「巣（す）／くもの巣がはる。」の形か、漢字だけを並べて入れてください。'), 'warn');
+          ? phrase('追加する問題にチェックが入っていません。', 'No question is checked.')
+          : phrase('問題として読み取れる行がありません。1行に1問、「巣（す）／くもの巣がはる。」の形か、漢字だけを並べて入れてください。',
+            'No line could be read as a question. Use one per line, like 巣（す）／くもの巣がはる。 or a list of kanji.')), 'warn');
         return;
       }
-      const created = addQuestions(chosen, cfg.source, true);
+      const created = addQuestions(chosen, 'paste', true);
       if (!created.length) {
-        toast('同じ問題がすでに入っているので、追加しませんでした。', 'warn');
+        toast(phrase('同じ問題がすでに入っているので、追加しませんでした。', 'Those questions are already in the test.'), 'warn');
         return;
       }
       const noData = Math.min(created.length, chosen.filter((c) => c._note).length);
@@ -2707,116 +2767,57 @@
       overrides.clear();
       cfg.onText('');
       render();
-      toast(created.length + '問を追加しました（合計 ' + state.questions.length + '問）' +
-        (created.skipped ? '　同じ問題' + created.skipped + '問は追加していません。' : '') +
-        (auto ? '　' + auto + '問は、読みと例文を自動で入れました。' : '') +
-        (noData ? '　' + noData + '問は、小学校の漢字の問題データにないため、読み・例文が空です。' : ''), noData ? 'warn' : '', {
-        label: '問題一覧を見る', run: () => $('listPanel').scrollIntoView({ behavior: 'smooth', block: 'start' })
+      toast(created.length + phrase('問を追加しました（合計 ', ' added (') + state.questions.length + phrase('問）', ' total)') +
+        (created.skipped ? phrase('　同じ問題' + created.skipped + '問は追加していません。', ' Skipped ' + created.skipped + ' already in the test.') : '') +
+        (auto ? phrase('　' + auto + '問は、読みと例文を自動で入れました。', ' Filled reading and sentence for ' + auto + '.') : '') +
+        (noData ? phrase('　' + noData + '問は、小学校の漢字の問題データにないため、読み・例文が空です。', ' ' + noData + ' are not in the elementary list, so the reading and sentence are empty.') : ''), noData ? 'warn' : '', {
+        label: phrase('問題一覧を見る', 'See the list'), run: () => $('listPanel').scrollIntoView({ behavior: 'smooth', block: 'start' })
       });
     });
 
     return { render };
   }
 
-  // ---- OCR -----------------------------------------------------------------
-
-  let ocrToken = 0;
-  let thumbUrl = null;
-
-  function setOcrStatus(message, kind) {
-    el.ocrStatus.textContent = message;
-    el.ocrStatus.className = 'status-box' + (kind ? ' is-' + kind : '');
+  function buildAiPrompt() {
+    return KI.buildPrompt({
+      mode: state.promptMode === 'write' ? 'write' : 'photo',
+      rangeLabel: RANGE_LABELS[state.gen.range] || '小学1〜6年',
+      count: countsTotal() || state.gen.count,
+      paperLabel: FORMAT_LABELS[state.format] || 'A4縦',
+      theme: state.aiTheme
+    });
   }
 
-  const OCR_STATUS_TEXT = {
-    'loading tesseract core': '読み取りの準備をしています',
-    'initializing tesseract': '読み取りの準備をしています',
-    'loading language traineddata': '日本語データを読み込み中（初回は時間がかかります）',
-    'initializing api': '読み取りの準備をしています',
-    'recognizing text': '文字を読み取っています'
-  };
+  function refreshPromptText() { if (el.aiPromptText) el.aiPromptText.value = buildAiPrompt(); }
 
-  async function handleOcrFile(file) {
-    if (!file) return;
-    const token = ++ocrToken;
-    if (thumbUrl) URL.revokeObjectURL(thumbUrl);
-    thumbUrl = URL.createObjectURL(file);
-    el.ocrThumb.src = thumbUrl;
-    el.ocrThumb.hidden = false;
-    setOcrStatus('読み取り中…', 'busy');
-    [el.ocrCameraBtn, el.ocrPickBtn].forEach((b) => { b.disabled = true; });
-
-    try {
-      const result = await KI.runOcr(file, state.ocrProvider, {
-        onProgress: (m) => {
-          if (token !== ocrToken) return;
-          const label = OCR_STATUS_TEXT[m.status] || m.status || '処理中';
-          const pct = typeof m.progress === 'number' ? ' ' + Math.round(m.progress * 100) + '%' : '';
-          setOcrStatus(label + pct, 'busy');
-        }
-      }, { vertical: state.ocrVertical });
-      if (token !== ocrToken) return;
-      el.ocrText.value = result.text;
-      state.ocrText = result.text;
-      ocrImporter.render();
-      save();
-      if (result.mock) setOcrStatus('デモの結果です（写真は読み取っていません）。下の欄を直して動作を試せます。', 'warn');
-      else if (!result.text) setOcrStatus('文字を読み取れませんでした。明るい場所で真上から撮り直すか、下の欄に直接入力してください。', 'warn');
-      else setOcrStatus('読み取りが完了しました。文字の読み間違いがないか確認してから、「問題に追加」を押してください。', 'ok');
-    } catch (error) {
-      console.error(error);
-      if (token === ocrToken) setOcrStatus('読み取りに失敗しました：' + error.message + ' 「自分で」から手入力もできます。', 'error');
-    } finally {
-      [el.ocrCameraBtn, el.ocrPickBtn].forEach((b) => { b.disabled = false; });
-      el.ocrFile.value = '';
-      el.ocrCamera.value = '';
+  function syncPromptMode() {
+    document.querySelectorAll('#promptModePills .pill-btn').forEach((b) => {
+      const on = b.dataset.promptMode === (state.promptMode === 'write' ? 'write' : 'photo');
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    if (el.step2Hint) {
+      el.step2Hint.textContent = state.promptMode === 'photo'
+        ? phrase('開いた先で、写真を添付してください。このサイトは写真を送らず、ログインもしません。',
+          'On that site, attach the photo yourself. This site does not send the photo or sign you in.')
+        : phrase('公式のサイトを新しいタブで開きます。このサイトはログインせず、文章も代わりに送りません。',
+          'This opens the official site in a new tab. This site does not sign you in or send the text for you.');
     }
   }
-
-  // ---- AI プロンプト --------------------------------------------------------
-
-  function buildAiPrompt() {
-    const range = RANGE_LABELS[state.gen.range] || '小学1〜6年';
-    const theme = (state.aiTheme || '').trim();
-    return [
-      'あなたは日本の小学校の国語の先生です。漢字テスト用の問題を作ってください。',
-      '',
-      '【条件】',
-      '・対象：' + range + '（学年別漢字配当表の漢字）',
-      '・問題数：' + (countsTotal() || state.gen.count) + '問',
-      '・同じ漢字を重複して出さない',
-      '・例文は自然な日本語で、その学年までに習う漢字とひらがな・カタカナだけで書く（習っていない漢字はひらがなにする）',
-      '・出題する語は、例文の中にそのままの形で1回だけ入れる',
-      theme ? '・テーマ：' + theme : null,
-      '',
-      '【出力形式】説明文は不要です。次の形式で1行に1問ずつ出力してください。',
-      '漢字（よみ）／例文',
-      '',
-      '例：',
-      '巣（す）／くもの巣がはる。',
-      '歩く（あるく）／公園を歩く。',
-      '',
-      '（JSON配列で出力する場合）',
-      '[{"type":"kaki","grade":4,"kanji":"巣","reading":"す","sentence":"くもの巣がはる。","answer":"巣"}]',
-      'type は kaki(書き) / yomi(読み) / sentence(文中の□に書く) / okuri(送りがな) / mas(練習マス) / trace(なぞり書き) / free(自由入力) のいずれか。'
-    ].filter((line) => line !== null).join('\n');
-  }
-
-  function refreshPromptText() { el.aiPromptText.value = buildAiPrompt(); }
 
   async function copyPrompt() {
     refreshPromptText();
     const text = el.aiPromptText.value;
     try {
       await navigator.clipboard.writeText(text);
-      toast('AIへのお願い文をコピーしました。AIに貼り付けてください。');
+      toast(phrase('お願い文をコピーしました。開いたAIに貼り付けてください。', 'Copied. Paste it into the AI you opened.'));
     } catch (error) {
       el.aiPromptText.closest('details').open = true;
       el.aiPromptText.focus();
       el.aiPromptText.select();
       let ok = false;
       try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-      toast(ok ? 'AIへのお願い文をコピーしました。' : '自動コピーできませんでした。選択されている文章を長押しでコピーしてください。', ok ? '' : 'warn');
+      toast(ok ? phrase('お願い文をコピーしました。', 'Copied.') : phrase('自動コピーできませんでした。選択されている文章を長押しでコピーしてください。', 'Could not copy. Select the text and copy it.'), ok ? '' : 'warn');
     }
   }
 
@@ -3036,15 +3037,10 @@
     updateStrokeCount();
     renderStrokePicker();
     renderTypeCounts();
-    el.ocrProvider.value = state.ocrProvider;
-    el.ocrVertical.checked = !!state.ocrVertical;
-    el.ocrText.value = state.ocrText;
-    el.aiInput.value = state.aiText;
+    el.pasteText.value = state.pasteText;
     el.aiTheme.value = state.aiTheme;
-    el.bulkText.value = state.bulkText;
-    el.ocrType.value = state.importTypes.ocr;
-    el.aiType.value = state.importTypes.ai;
-    el.bulkType.value = state.importTypes.bulk;
+    el.pasteType.value = state.importTypes.paste || 'auto';
+    syncPromptMode();
     refreshTypePickers();
     document.querySelectorAll('[data-setting]').forEach((input) => {
       const value = state[input.dataset.setting];
@@ -3387,7 +3383,7 @@
       ui.bulkApply = null;
       syncControls();
       applyView();
-      [ocrImporter, aiImporter, bulkImporter].forEach((imp) => imp.render());
+      if (pasteImporter) pasteImporter.render();
       renderList();
       renderPaper();
       persist();
@@ -3459,9 +3455,7 @@
 
   // ---- イベント -------------------------------------------------------------
 
-  let ocrImporter;
-  let aiImporter;
-  let bulkImporter;
+  let pasteImporter;
 
   function attachEvents() {
     // 表示切り替え
@@ -3563,6 +3557,8 @@
       state.format = el.strokeFormatSelect.value;
       syncFormatSelects();
       renderPaper();
+      refreshPromptText();
+      if (pasteImporter) pasteImporter.render();
       save();
     });
     $('strokeMakeBtn').addEventListener('click', showStrokeSheet);
@@ -3662,23 +3658,28 @@
     $('importBtn').addEventListener('click', () => el.importFile.click());
     el.importFile.addEventListener('change', () => { importFileFrom(el.importFile.files && el.importFile.files[0]); el.importFile.value = ''; });
 
-    // OCR
-    $('ocrCameraBtn').addEventListener('click', () => el.ocrCamera.click());
-    $('ocrPickBtn').addEventListener('click', () => el.ocrFile.click());
-    [el.ocrCamera, el.ocrFile].forEach((input) => input.addEventListener('change', () => handleOcrFile(input.files && input.files[0])));
-    el.ocrProvider.addEventListener('change', () => { state.ocrProvider = el.ocrProvider.value; save(); });
-    el.ocrVertical.addEventListener('change', () => { state.ocrVertical = el.ocrVertical.checked; save(); });
-
-    // AI
     $('copyPromptBtn').addEventListener('click', copyPrompt);
+    $('openPasteBtn').addEventListener('click', () => {
+      openTool('import');
+      el.pasteText.focus();
+      el.pasteText.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    $('promptModePills').addEventListener('click', (event) => {
+      const b = event.target.closest('[data-prompt-mode]');
+      if (!b) return;
+      state.promptMode = b.dataset.promptMode === 'write' ? 'write' : 'photo';
+      syncPromptMode();
+      refreshPromptText();
+      save();
+    });
     el.aiTheme.addEventListener('input', () => { state.aiTheme = el.aiTheme.value; refreshPromptText(); save(); });
 
     // 用紙設定
-    el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; syncFormatSelects(); renderPaper(); save(); });
+    el.printFormat.addEventListener('change', () => { state.format = el.printFormat.value; syncFormatSelects(); renderPaper(); refreshPromptText(); if (pasteImporter) pasteImporter.render(); save(); });
     if (el.gradeFormatSelect) {
       fillSelect(el.gradeFormatSelect, FORMAT_ORDER, formatChoiceMap());
       el.gradeFormatSelect.value = state.format; // fillSelect でいったん空になるため、ここで現在の用紙を入れ直す
-      el.gradeFormatSelect.addEventListener('change', () => { state.format = el.gradeFormatSelect.value; syncFormatSelects(); renderPaper(); save(); });
+      el.gradeFormatSelect.addEventListener('change', () => { state.format = el.gradeFormatSelect.value; syncFormatSelects(); renderPaper(); refreshPromptText(); if (pasteImporter) pasteImporter.render(); save(); });
     }
     document.querySelectorAll('[data-setting]').forEach((input) => {
       const handler = () => {
@@ -3705,8 +3706,7 @@
       'saveState', 'printBtn', 'workspace', 'toast', 'inlineNotice', 'listCount', 'tabCount', 'questionList', 'paperHost', 'printArea', 'pageStyle',
       'sheetViewport', 'gradeRange', 'genReplace', 'avoidRecent', 'typePills', 'typeCounts', 'drawStatus', 'printFormat', 'gradeFormatSelect', 'zoomFit', 'zoomLabel',
       'sheetInfo', 'importFile', 'importSetsFile', 'historyCount', 'listNotice', 'setName', 'setList', 'storageUsage',
-      'ocrProvider', 'ocrVertical', 'ocrText', 'ocrStatus', 'ocrThumb', 'ocrFile', 'ocrCamera', 'ocrCameraBtn', 'ocrPickBtn', 'ocrType',
-      'aiInput', 'aiTheme', 'aiType', 'aiPromptText', 'bulkText', 'bulkType',
+      'pasteText', 'pasteType', 'aiTheme', 'aiPromptText', 'step2Hint',
       'customType', 'customStyle', 'customKanji', 'customReading', 'customSentence', 'customAnswer',
       'customKanjiLabel', 'customReadingLabel', 'customHint', 'customSentenceLabel',
       'printConfirm', 'printConfirmBody', 'printConfirmCancel', 'printConfirmGo',
@@ -3721,9 +3721,7 @@
     const keep = {
       type: el.customType.value,
       style: el.customStyle.value,
-      ocr: el.ocrType.value,
-      ai: el.aiType.value,
-      bulk: el.bulkType.value
+      paste: el.pasteType.value
     };
     fillSelect(el.customType, TYPES, typeLabelsMap());
     el.customType.value = keep.type;
@@ -3731,10 +3729,8 @@
     el.customStyle.value = keep.style;
     const importTypes = { auto: I18n.typeLabel('auto') };
     TYPES.forEach((t) => { importTypes[t] = I18n.typeLabel(t); });
-    ['ocrType', 'aiType', 'bulkType'].forEach((id) => {
-      fillSelect(el[id], Object.keys(importTypes), importTypes);
-      el[id].value = keep[id === 'ocrType' ? 'ocr' : id === 'aiType' ? 'ai' : 'bulk'];
-    });
+    fillSelect(el.pasteType, Object.keys(importTypes), importTypes);
+    el.pasteType.value = keep.paste;
     [el.gradeFormatSelect, el.strokeFormatSelect].forEach((sel) => {
       if (!sel) return;
       fillSelect(sel, FORMAT_ORDER, formatChoiceMap());
@@ -3754,6 +3750,7 @@
     else renderPaper();
     detectKyokasho();
     updatePrintLabels();
+    if (pasteImporter) pasteImporter.render();
     pagePlanCache.key = '';
     document.querySelectorAll('[data-set-lang]').forEach((btn) => {
       const on = btn.getAttribute('data-set-lang') === uiLang();
@@ -3775,8 +3772,7 @@
     el.customStyle.addEventListener('change', refreshTypePickers);
     const importTypes = { auto: I18n.typeLabel('auto') };
     TYPES.forEach((t) => { importTypes[t] = I18n.typeLabel(t); });
-    ['ocrType', 'aiType', 'bulkType'].forEach((id) => fillSelect(el[id], Object.keys(importTypes), importTypes));
-    el.ocrProvider.innerHTML = Object.keys(KI.OCR_PROVIDERS).map((k) => '<option value="' + k + '">' + esc(KI.OCR_PROVIDERS[k].label) + '</option>').join('');
+    fillSelect(el.pasteType, Object.keys(importTypes), importTypes);
     fillSelect(el.strokeFormatSelect, FORMAT_ORDER, formatChoiceMap());
     fillSelect(el.printFormat, FORMAT_ORDER, formatShortMap());
     renderTypePills();
@@ -3790,19 +3786,11 @@
     setTimeout(() => { ui.bootToolId = null; }, 1000);
     applyView();
 
-    ocrImporter = createImporter({
-      key: 'ocr', textId: 'ocrText', previewId: 'ocrPreview', typeId: 'ocrType', addId: 'ocrAddBtn', source: 'ocr',
-      onText: (v) => { state.ocrText = v; save(); }
+    pasteImporter = createImporter({
+      key: 'paste', textId: 'pasteText', previewId: 'pastePreview', typeId: 'pasteType', addId: 'pasteAddBtn', source: 'paste',
+      onText: (v) => { state.pasteText = v; save(); }
     });
-    aiImporter = createImporter({
-      key: 'ai', textId: 'aiInput', previewId: 'aiPreview', typeId: 'aiType', addId: 'aiAddBtn', source: 'ai',
-      onText: (v) => { state.aiText = v; save(); }
-    });
-    bulkImporter = createImporter({
-      key: 'bulk', textId: 'bulkText', previewId: 'bulkPreview', typeId: 'bulkType', addId: 'bulkAddBtn', source: 'paste',
-      onText: (v) => { state.bulkText = v; save(); }
-    });
-    [ocrImporter, aiImporter, bulkImporter].forEach((imp) => imp.render());
+    pasteImporter.render();
 
     attachEvents();
 

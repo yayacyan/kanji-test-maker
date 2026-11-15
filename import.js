@@ -1,10 +1,9 @@
 /*
- * import.js — テキスト／JSON／OCR からの題目取り込み（画面に依存しない部品）
+ * import.js — 貼り付けテキスト／JSON からの問題取り込み（画面に依存しない部品）
  *
- * - parseBulk(text, { type, source })  … 貼り付けテキスト・AI出力・OCR結果を題目の配列にする
- * - runOcr(file, provider, hooks, opts) … OCR プロバイダーのアダプター。
- *     OCR_PROVIDERS に { label, run(file, hooks, opts) → { text } } を足せば、
- *     Google Cloud Vision や自前サーバーなど別の OCR にも差し替えられる。
+ * - parseBulk(text, options) … 貼り付けた文章を問題の配列にする。学年の推定、長すぎ・重複・形式の印も付ける
+ * - buildPrompt(options) … 利用者が自分の ChatGPT / Gemini に渡すお願い文
+ * 写真の読み取りはこのファイルでは行わない。
  */
 (function (global) {
   'use strict';
@@ -169,7 +168,33 @@
       : defaultAnswer(item, type);
     item._enriched = enriched;
     if (note) item._note = note;
+    const supplied = fields.grade !== undefined && fields.grade !== null && String(fields.grade).trim() !== '';
+    if (!supplied) {
+      const found = inferGrade(item.kanji, opts.lookup);
+      if (found) {
+        item.grade = found.grade;
+        if (found.inferred) item.gradeInferred = true;
+      }
+    }
     return item;
+  }
+
+  /**
+   * 題庫から学年を読む。1字はその字の学年。熟語は、どの字も題庫にあるときだけ、いちばん高い学年。
+   * 返り値: { grade, inferred } または null（題庫にない字が混ざるとき）。
+   */
+  function inferGrade(word, lookup) {
+    if (!lookup) return null;
+    const chars = Array.from(String(word || '')).filter((c) => RE_HAS_KANJI.test(c));
+    if (!chars.length) return null;
+    const grades = [];
+    for (let i = 0; i < chars.length; i += 1) {
+      const entry = lookup(chars[i]);
+      const grade = entry && Number(entry.grade);
+      if (!(grade >= 1 && grade <= 6)) return null;
+      grades.push(grade);
+    }
+    return { grade: Math.max.apply(null, grades), inferred: chars.length > 1 };
   }
 
   /** 戻り値: { items: [{...}], weak?: true } もしくは { skip: '理由' } */
@@ -216,7 +241,7 @@
     }
 
     // 3) 漢字（よみ）／例文
-    // 区切りは「／」のほか、OCR が読み違えやすい「/ \\ | ノ 丿」も許す
+    // 区切りは「／」のほか、貼り付けでゆれやすい「/ \\ | ノ 丿」「プア」も受ける
     m = line.match(/^(.+?)\s*[（(]\s*([^（()）]+?)\s*[）)]\s*(?:プア|[／/\\|｜丿ノ]{1,2})\s*(.+)$/);
     if (m && RE_KANA_ONLY.test(m[2])) {
       return { items: [makeItem({ kanji: m[1], reading: m[2], sentence: m[3] }, opts)] };
@@ -330,7 +355,9 @@
     if (!cleaned) return { items: [], skipped: [] };
 
     if (/^[\[{]/.test(cleaned)) {
-      return parseJsonText(cleaned, opts);
+      const parsed = parseJsonText(cleaned, opts);
+      if (parsed.error) return parsed;
+      return annotateImport(parsed, opts);
     }
 
     const items = [];
@@ -345,13 +372,185 @@
         items.push(item);
       });
     });
-    return { items, skipped };
+    return annotateImport({ items, skipped }, opts);
   }
 
-  // ---- OCR アダプター --------------------------------------------------------
+  // ---- 学年の推定のあと、長すぎ・重複・形式の印 --------------------------------
 
-  /** 日本語は認識結果の文字間に空白が入りやすいので、かなを含む行だけ詰める。 */
-  function cleanOcrText(text) {
+  // describe() がマスに載せられる字数。これより長い答えは、用紙のマスに入りきらない。
+  const BOX_CAP = { kaki: 10, yomi: 12, sentence: 10, okuri: 6, mas: 12, trace: 12, free: 12 };
+  // app.js の FORMATS / PAD / MIN_FONT / 段の分け方と同じ。用紙の「読める下限」に入る例文の長さ。
+  const PAPER = {
+    'A4-portrait': { w: 210, h: 297, minCols: 5 },
+    'A4-landscape': { w: 297, h: 210, minCols: 6 },
+    'Letter-portrait': { w: 215.9, h: 279.4, minCols: 5 },
+    'Letter-landscape': { w: 279.4, h: 215.9, minCols: 6 },
+    'A3-landscape': { w: 420, h: 297, minCols: 6 }
+  };
+  const PAD_TOP = 10;
+  const PAD_X = 10;
+  const PAD_BOTTOM = 22;
+  const MIN_FONT_MM = 2.8;
+  const TIER_GAP = 3;
+
+  function autoTiers(format, n) {
+    if (format === 'A3-landscape') return n <= 10 ? 1 : n <= 20 ? 2 : 4;
+    if (format === 'A4-landscape') return n <= 14 ? 1 : n <= 28 ? 2 : n <= 42 ? 3 : 4;
+    return n <= 10 ? 1 : n <= 20 ? 2 : n <= 30 ? 3 : n <= 40 ? 4 : 5;
+  }
+
+  /** いまの用紙で、文字を MIN_FONT_MM まで小さくしたときに1問の列へ入る例文の字数。 */
+  function columnBudget(options) {
+    const opts = options || {};
+    const format = PAPER[opts.format] ? opts.format : 'A4-portrait';
+    const fmt = PAPER[format];
+    const n = Math.max(1, Number(opts.questionCount) || 1);
+    const perTier = Math.max(1, Math.ceil(n / autoTiers(format, n)));
+    const tiers = Math.ceil(n / perTier);
+    const cols = Math.max(perTier, fmt.minCols);
+    const head = Number(opts.headMm) > 0 ? Number(opts.headMm) : 22;
+    const bodyW = fmt.w - PAD_X * 2;
+    const bodyH = fmt.h - PAD_TOP - PAD_BOTTOM - head;
+    const tierH = (bodyH - TIER_GAP * (tiers - 1)) / tiers;
+    const colW = bodyW / cols;
+    const f = MIN_FONT_MM;
+    const usableW = colW - 1.5 * f - 0.6 * f;
+    const textCols = Math.max(1, Math.floor(usableW / (1.6 * f)));
+    const firstCol = Math.max(1, (tierH - 1.5 * f) / f);
+    const nextCol = Math.max(1, tierH / f);
+    return Math.floor(firstCol + (textCols - 1) * nextCol);
+  }
+
+  function duplicateKey(item) {
+    if (!item || item._skip) return '';
+    const kanji = String(item.kanji || '').trim();
+    const reading = String(item.reading || '').trim();
+    const sentence = String(item.sentence || '').trim();
+    if (kanji && reading) return 'kr:' + kanji + '\n' + reading;
+    if (kanji && sentence) return 'ks:' + kanji + '\n' + sentence;
+    if (kanji) return 'k:' + kanji;
+    if (sentence) return 's:' + sentence;
+    return '';
+  }
+
+  function annotateImport(parsed, opts) {
+    const items = (parsed.items || []).map((item) => item);
+    const skipped = parsed.skipped || [];
+    skipped.forEach((row) => {
+      items.push({
+        _line: row.line,
+        _skip: true,
+        type: 'free',
+        grade: '',
+        kanji: '',
+        reading: '',
+        sentence: row.line,
+        answer: '',
+        style: 'mas',
+        source: opts.source || 'paste',
+        flags: [{ kind: 'malformed', detail: row.reason || '読み取れない行' }]
+      });
+    });
+
+    const seen = new Map();
+    items.forEach((item) => {
+      if (item._skip) return;
+      item.flags = item.flags || [];
+      const key = duplicateKey(item);
+      if (key) {
+        if (seen.has(key)) item.flags.push({ kind: 'duplicate' });
+        else seen.set(key, true);
+      }
+      const cap = BOX_CAP[item.type] || 12;
+      const answerLen = Array.from(String(item.answer || '')).length;
+      if (item.type !== 'free' && answerLen > cap) {
+        item.flags.push({ kind: 'long', part: 'answer', length: answerLen, limit: cap });
+      }
+      if (item.type !== 'mas' && item.type !== 'trace') {
+        const sentenceLen = Array.from(String(item.sentence || '')).length;
+        const limit = columnBudget({
+          format: opts.format,
+          questionCount: opts.questionCount || items.filter((row) => !row._skip).length || 1,
+          headMm: opts.headMm
+        });
+        if (sentenceLen > limit) item.flags.push({ kind: 'long', part: 'sentence', length: sentenceLen, limit: limit, fontMm: MIN_FONT_MM });
+      }
+      if (item._weak) item.flags.push({ kind: 'malformed', detail: item._note || 'この行は、問題の形として読み取れません。' });
+    });
+
+    const seenLine = new Map();
+    items.forEach((item) => {
+      const line = item._line || '';
+      const n = (seenLine.get(line) || 0) + 1;
+      seenLine.set(line, n);
+      item._key = line + '#' + n;
+      item._exclude = !!(item.flags && item.flags.length);
+    });
+    items.sort((a, b) => ((a.flags && a.flags.length) ? 0 : 1) - ((b.flags && b.flags.length) ? 0 : 1));
+    return { items, skipped, error: parsed.error };
+  }
+
+  // ---- お願い文 --------------------------------------------------------------
+
+  const AI_SITES = [
+    { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/' },
+    { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/' }
+  ];
+
+  /**
+   * 利用者が自分で開いた AI に渡す文章。他のサイトの文面は使わない。
+   * mode: 'photo' は写真を添付し、印刷された読み・例文だけを使う。'write' は文章だけで作る。
+   * 学校テスト風の50問の内訳は、その用紙ができてから書く（ここでは書かない）。
+   */
+  function buildPrompt(options) {
+    const opts = options || {};
+    const photo = opts.mode === 'photo';
+    const range = opts.rangeLabel || '小学1〜6年';
+    const count = opts.count || 10;
+    const paper = opts.paperLabel || 'A4縦';
+    const theme = String(opts.theme || '').trim();
+    const lines = [
+      'あなたは日本の小学校の国語の先生です。漢字テストの問題を、指定の形で出してください。',
+      ''
+    ];
+    if (photo) {
+      lines.push(
+        '【写真】',
+        'この文章と一緒に、漢字のドリルかテストの写真を添付してください。',
+        '印刷されている読み、例文、問題番号だけを使ってください。',
+        '児童が枠の中に書いた手書きの答えは、使わないでください。',
+        '赤ペンの採点や直しも、使わないでください。',
+        '名前、顔、関係のない背景が写っていても、問題にはしないでください。',
+        ''
+      );
+    }
+    lines.push(
+      '【条件】',
+      '・対象：' + range + '（学年別漢字配当表の漢字）',
+      '・問題数：' + count + '問',
+      '・用紙：' + paper + '（例文は短くする。書きの答えは10字まで、読みの答えは12字まで、送りがなは6字まで）',
+      '・同じ漢字を重ねて出さない',
+      '・例文は自然な日本語で、その学年までに習う漢字とひらがな・カタカナだけで書く（まだ習っていない漢字はひらがなにする）',
+      '・出題する語は、例文の中にそのままの形で1回だけ入れる',
+      '・送りがなの問題も、語全体を漢字の位置に書く（例：借りる（かりる）／本を借りる。）',
+      theme ? '・テーマ：' + theme : null,
+      '',
+      '【出力】説明は要りません。1行に1問、次の形だけを出してください。',
+      '漢字（よみ）／例文',
+      '',
+      '例：',
+      '巣（す）／くもの巣がはる。',
+      '歩く（あるく）／公園を歩く。',
+      '',
+      '（JSONの配列で出す場合）',
+      '[{"type":"kaki","grade":3,"kanji":"巣","reading":"す","sentence":"くもの巣がはる。","answer":"巣"}]',
+      'type は kaki（書き） / yomi（読み） / sentence（文中の□） / okuri（送りがな） / mas（練習マス） / trace（なぞり書き） / free（自由入力） のいずれか。'
+    );
+    return lines.filter((line) => line !== null).join('\n');
+  }
+
+  /** かなを含む行の、文字と文字のあいだに入った空白を詰める。貼り付けのゆれ用。解析の区切りには使わない。 */
+  function cleanPastedText(text) {
     const CJK = '\\u3040-\\u30ff\\u3400-\\u9fff々ー（）()／/、。！？「」『』・,，|｜';
     const re = new RegExp('([' + CJK + '])[ \\t\\u3000]+(?=[' + CJK + '])', 'g');
     return String(text || '')
@@ -369,100 +568,9 @@
       .join('\n');
   }
 
-  /** 大きな写真は長辺 2000px に縮めてから OCR に渡す（スマホ写真は重いため）。失敗したら元のまま。 */
-  async function prepareImage(file) {
-    try {
-      if (!global.createImageBitmap) return file;
-      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-      const longest = Math.max(bitmap.width, bitmap.height);
-      if (longest <= 2000) { bitmap.close && bitmap.close(); return file; }
-      const scale = 2000 / longest;
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close && bitmap.close();
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-      return blob || file;
-    } catch (error) {
-      return file;
-    }
-  }
-
-  let tesseractPromise = null;
-  function loadTesseract() {
-    if (global.Tesseract) return Promise.resolve(global.Tesseract);
-    if (!tesseractPromise) {
-      tesseractPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-        script.onload = () => resolve(global.Tesseract);
-        script.onerror = () => {
-          tesseractPromise = null;
-          reject(new Error('読み取りの部品を読み込めませんでした。インターネットにつながっているか確認してください。'));
-        };
-        document.head.appendChild(script);
-      });
-    }
-    return tesseractPromise;
-  }
-
-  const OCR_PROVIDERS = {
-    tesseract: {
-      label: 'このブラウザで読み取る（初期設定）',
-      isMock: false,
-      async run(file, hooks, opts) {
-        const Tesseract = await loadTesseract();
-        const lang = opts && opts.vertical ? 'jpn_vert' : 'jpn';
-        const worker = await Tesseract.createWorker(lang, 1, {
-          logger: (message) => hooks && hooks.onProgress && hooks.onProgress(message)
-        });
-        try {
-          if (opts && opts.vertical) await worker.setParameters({ tessedit_pageseg_mode: '5' });
-          const result = await worker.recognize(file);
-          return { text: result.data.text || '' };
-        } finally {
-          await worker.terminate();
-        }
-      }
-    },
-    mock: {
-      label: 'デモ（サンプルを表示。写真は読みません）',
-      isMock: true,
-      async run() {
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        return {
-          text: [
-            '巣（す）／くもの巣がはる。',
-            '歩く,あるく,公園を歩く。',
-            '観光、かんこう、観光地を見学した。',
-            '花の（　）が出る。|芽',
-            '山 川 空'
-          ].join('\n')
-        };
-      }
-    }
-    // 例）外部 API に差し替えるときは、ここに追加する:
-    // cloudVision: { label: 'Google Cloud Vision', async run(file) { /* fetch(...) */ return { text: '...' }; } }
-  };
-
-  /**
-   * OCR の入口。file（画像）→ { text, provider, mock }
-   * hooks: { onProgress({status, progress}) }   opts: { vertical: boolean }
-   */
-  async function runOcr(file, provider, hooks, opts) {
-    const name = provider || 'tesseract';
-    const adapter = OCR_PROVIDERS[name];
-    if (!adapter) throw new Error('未対応の OCR エンジンです: ' + name);
-    const image = adapter.isMock ? file : await prepareImage(file);
-    const result = await adapter.run(image, hooks || {}, opts || {});
-    return { provider: name, mock: !!adapter.isMock, text: cleanOcrText(result.text) };
-  }
-
   global.KanjiImport = {
     TYPES, TYPE_LABELS, STYLES, STYLE_LABELS, okuriParts,
     normType, normStyle, defaultAnswer, checkQuestion, hasBlank, fillBlank,
-    parseBulk, cleanOcrText, runOcr, OCR_PROVIDERS
+    parseBulk, cleanPastedText, inferGrade, columnBudget, buildPrompt, AI_SITES, BOX_CAP
   };
-  global.runOcr = runOcr;
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
