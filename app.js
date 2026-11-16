@@ -5,7 +5,7 @@
  *
  * 問題の形（localStorage にもこの形で保存）:
  *   { id, type, grade, kanji, reading, sentence, answer, style, source, base }
- *   type   : kaki 書き(線のかな) / yomi 読み / sentence 書き(文中の□) / okuri 送りがな / mas 練習マス / trace なぞり書き / free 自由入力
+ *   type   : kaki 書き(線のかな) / yomi 読み / sentence 書き(文中の□) / okuri 漢字と送りがな / mas 練習マス / trace なぞり書き / free 自由入力
  *   style  : mas マス / kakko かっこ / line 線（解答欄の形）
  *   source : bank 学年から作成 / ocr / ai / paste 貼り付け / custom 手入力
  *   base   : 学年から作成したときの配当漢字1字（重複防止に使う）
@@ -81,7 +81,7 @@
       showScore: true,
       font: 'kyokasho',
       readingHint: false,   // 「文中の□」の読みがな（既定は出さない：読みがなから答えが推測できるため）
-      okuriReadingHint: true, // 「送りがな」の読みがな（漢字の読みだけを示すので、答えは漏れない。既定は出す）
+      okuriReadingHint: true, // 「漢字と送りがな」の読み。漢字は枠の中なので、読みを出しても答えの字形は漏れない。既定は出す
       okuriCells: false,
       practiceReps: '4',
       showInstructions: true,
@@ -153,6 +153,7 @@
       type,
       grade,
       gradeInferred: !!(raw.gradeInferred && grade),
+      okuriNeedsEdit: raw.okuriNeedsEdit === true,
       kanji: str(raw.kanji),
       reading: str(raw.reading),
       sentence: str(raw.sentence),
@@ -200,6 +201,7 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         applyStored(JSON.parse(raw));
+        applyOkuriMigration(KI.migrateOkuriList(state.questions), { scope: 'test' });
         return true;
       }
       // 旧バージョン（v1）からの引き継ぎ
@@ -217,6 +219,7 @@
             types: old.questionType && old.questionType !== 'mixed' ? [old.questionType] : undefined
           }
         });
+        applyOkuriMigration(KI.migrateOkuriList(state.questions), { scope: 'test' });
         return state.questions.length > 0;
       }
     } catch (error) {
@@ -402,13 +405,13 @@
 
   function repairLeaks(items, candidates) {
     const allKana = items.length > 0 && items.every((it) => it.entry.grade <= 2); // 説明文がかなだけのとき
-    const answerKanji = (it) => (it.type === 'kaki' || it.type === 'sentence' ? (it.entry.word.match(KANJI_CHAR) || []) : []);
+    const answerKanji = (it) => (it.type === 'kaki' || it.type === 'sentence' || it.type === 'okuri' ? (it.entry.word.match(KANJI_CHAR) || []) : []);
     const visibleOf = (it) => {
       const e = it.entry;
       if (it.type === 'yomi') return e.sentence;
       if (it.type === 'mas' || it.type === 'trace') return e.word;
-      const p = it.type === 'okuri' ? KI.okuriParts(e.word) : null;
-      return e.sentence.replace(e.word, p ? p.stem : '');
+      if (it.type === 'okuri') return String(e.sentence || '').split(e.word).join('');
+      return e.sentence.replace(e.word, '');
     };
     const score = (list) => {
       const vis = list.map(visibleOf);
@@ -636,7 +639,7 @@
       q('kaki', '巣', 'す', 'くもの巣がはる。', '巣', 4),
       q('yomi', '校庭', 'こうてい', '学校の校庭で遊ぶ。', 'こうてい', 2),
       q('sentence', '歌', 'うた', '大きな声で歌う。', '歌', 2),
-      q('okuri', '借りる', 'かりる', '図書館で本を借りる。', 'りる', 4),
+      q('okuri', '借りる', 'かりる', '図書館で本を借りる。', '借りる', 4),
       q('mas', '鏡', 'かがみ', '', '鏡', 4),
       q('trace', '雪', 'ゆき', '', '雪', 2),
       q('free', '', '', '「花」をつかって、文をつくりましょう。', '春になると、花がさく。', 4, 'line')
@@ -706,7 +709,15 @@
   }
 
   function warnHtml(q) {
-    const warns = KI.checkQuestion(withOkuriWord(q));
+    let warns = KI.checkQuestion(withOkuriWord(q));
+    if (q.okuriNeedsEdit && !(KI.okuriParts(str(q.kanji).trim()) && str(q.answer).trim() === str(q.kanji).trim())) {
+      const msg = phrase(
+        'この問題は、漢字と送りがなの語を確実に戻せませんでした。漢字と答えを手で直してください。',
+        'This question could not be rebuilt as the whole word. Edit the kanji and the answer by hand.'
+      );
+      warns = warns.filter((w) => w.indexOf('確実に戻せません') < 0);
+      warns.unshift(msg);
+    }
     return warns.length ? '<div class="qi-warn">⚠ ' + esc(warns.join(' ／ ')) + '</div>' : '';
   }
 
@@ -735,10 +746,11 @@
 
   function cardHtml(q, index) {
     const open = ui.openId === q.id;
-    return '<article class="question-item' + (open ? ' is-open' : '') + '" data-id="' + q.id + '">' +
+    return '<article class="question-item' + (open ? ' is-open' : '') + (q.okuriNeedsEdit ? ' is-needs-edit' : '') + '" data-id="' + q.id + '">' +
       '<div class="qi-head">' +
         '<span class="qi-no">' + (index + 1) + '</span>' +
         '<span class="chip type-' + q.type + '">' + esc(I18n.typeLabel(q.type)) + '</span>' +
+        (q.okuriNeedsEdit ? '<span class="chip is-edit">' + esc(phrase('手で直す', 'Edit')) + '</span>' : '') +
         '<span class="chip src">' + phrase('作り方：', '') + esc(phrase(SOURCE_LABELS[q.source], { bank: 'Grade', ocr: 'Photo', ai: 'AI', paste: 'Pasted', custom: 'Typed' }[q.source] || q.source)) + '</span>' +
       '</div>' +
       '<div class="qi-body" data-role="body">' + cardBodyHtml(q) + warnHtml(q) + '</div>' +
@@ -781,6 +793,7 @@
       q.grade = Number(event.target.value) || '';
       q.gradeInferred = false;
     } else q[field] = event.target.value;
+    if (q.type === 'okuri' && KI.okuriParts(str(q.kanji).trim()) && str(q.answer).trim() === str(q.kanji).trim()) delete q.okuriNeedsEdit;
     refreshCard(card, q);
     schedulePaper();
     save();
@@ -796,6 +809,8 @@
       const oldDefault = KI.defaultAnswer(q, q.type);
       q.type = event.target.value;
       if (!q.answer || q.answer === oldDefault) q.answer = KI.defaultAnswer(q, q.type);
+      if (q.type !== 'okuri') delete q.okuriNeedsEdit;
+      else if (KI.okuriParts(str(q.kanji).trim()) && str(q.answer).trim() === str(q.kanji).trim()) delete q.okuriNeedsEdit;
       afterQuestionsChanged();
       return;
     }
@@ -846,17 +861,22 @@
    *   seg: { t:'text'|'tgt'|'box'|'big'|'small', v, n, hint, chars }
    *   ans: { kind:'cells'|'free'|'practice', chars:[...], count }
    */
-  /** 送りがなの枠の高さ（マス数）：既定は2。送りがなが3字以上の問題が1つでもあれば、字数が枠の大きさでわからないよう、全問その高さにそろえる */
+  /** 漢字と送りがなの枠の高さ（字数）。語の長さで答えがわからないよう、用紙の中でいちばん長い語にそろえる */
   function okuriBoxCells() {
     let m = 2;
     state.questions.forEach((q) => {
       if (q.type !== 'okuri') return;
-      const p = KI.okuriParts(withOkuriWord(q).kanji);
-      const a = String(q.answer || '');
-      const ok = p ? (a.startsWith(p.stem) ? a.slice(p.stem.length) : (a || p.okuri)) : a;
-      m = Math.max(m, Math.min(6, chars(ok).length));
+      const word = okuriDisplayWord(q);
+      m = Math.max(m, Math.min(6, Math.max(1, chars(word).length)));
     });
     return m;
+  }
+
+  /** 枠に入る語。確実に戻せたときだけ、漢字と送りがなの全体を返す */
+  function okuriDisplayWord(q) {
+    const via = withOkuriWord(q);
+    const word = str(via.kanji).trim();
+    return KI.okuriParts(word) ? word : '';
   }
 
   /** 「漢字」欄に「借」だけ、「答え」欄に「りる」と入っていて、例文に「借りる」があるときは、「借りる」の入力として扱う */
@@ -929,17 +949,34 @@
         break;
       }
       case 'okuri': {
-        // 「借りる」→ 「借」は見せて、送りがな「りる」のぶんだけ□にする。読みは全体の上に小さく付ける
-        const parts = KI.okuriParts(q.kanji);
-        const stem = parts ? parts.stem : q.kanji;
-        const okChars = chars(parts && answer.startsWith(stem) ? answer.slice(stem.length) : answer);
-        // 読みは「漢字の部分」だけを付ける（全体の読みを付けると、送りがながそのまま見えてしまう）
-        const okStr = okChars.join('');
-        const stemReading = okStr && q.reading && q.reading.endsWith(okStr) && q.reading.length > okStr.length ? q.reading.slice(0, -okStr.length) : '';
-        const n = Math.min(Math.max(okChars.length, 1), 6);
-        // 既定は、字数がわからない1つの長い枠（□が2つだと「変る」でなく「変わる」とわかってしまう）。枠の高さは、用紙の全問でそろえる
-        const seg = { t: 'okuri', stem, n: state.okuriCells ? n : okuriBoxCells(), one: !state.okuriCells, chars: okChars, hint: stemReading };
-        if (loc) { pushText(loc.before); segs.push(seg); pushText(loc.after); } else { pushText(q.sentence); segs.push(seg); }
+        // 生徒が書くのは語全体。問題の枠には答えの字形を出さない。読みは枠のそばに小さく出す。
+        const word = okuriDisplayWord(q);
+        const answerWord = str(q.answer).trim();
+        const printable = q.okuriNeedsEdit ? '' : (KI.okuriParts(answerWord) ? answerWord : word);
+        const fullChars = chars(printable);
+        const own = Math.min(Math.max(chars(word).length || 1, 1), 6);
+        const seg = {
+          t: 'okuri',
+          n: state.okuriCells ? own : okuriBoxCells(),
+          one: !state.okuriCells,
+          chars: fullChars,
+          hint: str(q.reading).trim()
+        };
+        let placed = word ? KI.placeOkuri(q.sentence, word) : null;
+        const reading = str(q.reading).trim();
+        if (!placed && reading.length >= 2) placed = KI.placeOkuri(q.sentence, reading);
+        if (!placed && loc && !loc.target) {
+          placed = [{ t: 'text', v: loc.before }, { t: 'box' }, { t: 'text', v: loc.after }];
+        }
+        if (placed) {
+          placed.forEach((part) => {
+            if (part.t === 'text') pushText(part.v);
+            else segs.push(Object.assign({}, seg));
+          });
+        } else {
+          pushText(q.sentence);
+          segs.push(seg);
+        }
         ans = null;
         break;
       }
@@ -980,7 +1017,7 @@
     const textLen = segs.reduce((sum, s) => {
       if (s.t === 'tgt') return sum + Math.max(chars(s.v).length, s.side ? s.side.n * 1.25 : 0);
       if (s.t === 'box') return sum + s.n * 1.3;
-      if (s.t === 'okuri') return sum + chars(s.stem).length + s.n * 1.3;
+      if (s.t === 'okuri') return sum + s.n * 1.3;
       if (s.t === 'big') return sum + chars(s.v).length * 1.5;
       if (s.t === 'small') return sum + chars(s.v).length * 0.55;
       return sum + chars(s.v).length;
@@ -1023,10 +1060,14 @@
           : line;
       }
       case 'okuri': {
-        const stem = seg.hint && state.okuriReadingHint ? '<ruby class="hint-ruby">' + esc(seg.stem) + '<rt>' + esc(seg.hint) + '</rt></ruby>' : esc(seg.stem);
-        if (!seg.one) return stem + boxesHtml(seg, answerMode);
-        return stem + '<span class="box okuri-one" style="--k:' + seg.n + '">' +
-          (answerMode ? '<span class="ans-okuri">' + esc(seg.chars.join('')) + '</span>' : '') + '</span>';
+        const inner = seg.one
+          ? '<span class="box okuri-one" style="--k:' + seg.n + '">' +
+            (answerMode && seg.chars.length ? '<span class="ans-okuri">' + esc(seg.chars.join('')) + '</span>' : '') + '</span>'
+          : boxesHtml(seg, answerMode);
+        const unit = '<span class="okuri-unit">' + inner + '</span>';
+        return seg.hint && state.okuriReadingHint
+          ? '<ruby class="hint-ruby hint-ruby-box">' + unit + '<rt>' + esc(seg.hint) + '</rt></ruby>'
+          : unit;
       }
       case 'big': return '<span class="mas-kanji">' + esc(seg.v) + '</span>';
       case 'small': return '<span class="mas-yomi">' + esc(seg.v) + '</span>';
@@ -1118,7 +1159,7 @@
     kaki: 'せんの ひいてある ひらがなを、かん字で かきましょう。',
     yomi: 'せんの ひいてある かん字の よみがなを、ひらがなで かきましょう。',
     sentence: '□に あてはまる かん字を かきましょう。',
-    okuri: '□に おくりがなを かきましょう。',
+    okuri: '□に かん字と おくりがなを かきましょう。',
     mas: 'おてほんの かん字を、マスに くりかえし ていねいに かきましょう。',
     trace: 'うすい 字を なぞってから、のこりの マスにも おなじ 字を かきましょう。'
   };
@@ -1126,15 +1167,15 @@
     kaki: '線のひいてある ひらがなを、漢字で 書きましょう。',
     yomi: '線のひいてある 漢字の 読みがなを、ひらがなで 書きましょう。',
     sentence: '□に あてはまる 漢字を 書きましょう。',
-    okuri: '□に 送りがなを 書きましょう。',
+    okuri: '□に 漢字と送りがなを 書きましょう。',
     mas: 'お手本の 漢字を、マスに くりかえし ていねいに 書きましょう。',
     trace: 'うすい字を なぞってから、のこりのマスにも 同じ字を 書きましょう。'
   };
 
   // 種類が変わる最初の問題の上に付ける、「ここから ○○」の小さな札（種類のまとまりが2つ以上で、同じ種類が2か所に分かれていないときだけ。交錯しているときは上の説明文だけ）
   const SECTION_LABELS = {
-    kanji: { kaki: '書き取り', yomi: '読みがな', sentence: '文中の□', okuri: '送りがな', mas: '練習マス', trace: 'なぞり' },
-    kana: { kaki: 'かきとり', yomi: 'よみがな', sentence: 'ぶんの□', okuri: 'おくりがな', mas: 'れんしゅう', trace: 'なぞり' }
+    kanji: { kaki: '書き取り', yomi: '読みがな', sentence: '文中の□', okuri: '漢字と送りがな', mas: '練習マス', trace: 'なぞり' },
+    kana: { kaki: 'かきとり', yomi: 'よみがな', sentence: 'ぶんの□', okuri: 'かん字とおくりがな', mas: 'れんしゅう', trace: 'なぞり' }
   };
   let secCache = { key: '', tags: [] };
 
@@ -1158,7 +1199,7 @@
         const kana = qs.length > 0 && qs.every((q) => Number(q.grade) >= 1 && Number(q.grade) <= 2);
         runs.slice(1).forEach((r) => {
           tags[r.start] = uiLang() === 'en'
-            ? ['From here', { kaki: 'Writing', yomi: 'Reading', sentence: 'The box', okuri: 'Ending', mas: 'Practice', trace: 'Tracing' }[r.type]]
+            ? ['From here', { kaki: 'Writing', yomi: 'Reading', sentence: 'The box', okuri: 'Kanji and okurigana', mas: 'Practice', trace: 'Tracing' }[r.type]]
             : ['ここから', SECTION_LABELS[kana ? 'kana' : 'kanji'][r.type]];
         });
       }
@@ -1185,7 +1226,7 @@
         kaki: 'Write the kanji for the underlined hiragana.',
         yomi: 'Write the reading of the underlined kanji in hiragana.',
         sentence: 'Write the kanji that belongs in the box.',
-        okuri: 'Write the hiragana that follows the kanji.',
+        okuri: 'Write the kanji and the okurigana in the box.',
         mas: 'Look at the model and write the same kanji in the boxes.',
         trace: 'Trace the light gray character, then write it in the empty boxes.'
       };
@@ -1582,7 +1623,7 @@
 
   /** 用紙に出る文字（答えが見えてしまうかどうかの判定に使う） */
   function visibleText(q) {
-    return describe(q).segs.map((s) => (s.t === 'okuri' ? s.stem : s.t === 'box' ? '' : s.v || '')).join('');
+    return describe(q).segs.map((s) => ((s.t === 'okuri' || s.t === 'box') ? '' : s.v || '')).join('');
   }
 
   /** 同じ問題が2つある／ある問題の答えが別の問題に出ている、を探す */
@@ -2667,6 +2708,11 @@
   }
 
   function flagText(flag) {
+    if (flag.kind === 'edit') return {
+      label: phrase('手で直す', 'Edit'),
+      reason: flag.detail || phrase('送りがなの語を確実に戻せませんでした。漢字と答えを手で直してください。',
+        'The whole word could not be rebuilt. Edit the kanji and the answer.')
+    };
     if (flag.kind === 'duplicate') return {
       label: phrase('重複', 'Duplicate'),
       reason: phrase('同じ漢字と読みの問題が、もう一つあります。', 'Another row has the same kanji and reading.')
@@ -2831,8 +2877,8 @@
       hint: '「漢字」に読ませたい語、「よみがな」にその読み（答え）を入れてください。例文には、漢字のほうを書きます。' },
     sentence: { kanji: '芽', reading: '', kanjiLabel: '漢字（□に入る語）', readingLabel: 'よみがな（あれば）',
       hint: '「漢字」に□に入る語を入れてください。例文に□がなくても、その語がそのまま入っていれば、自動で□になります。' },
-    okuri: { kanji: '借りる', reading: 'かりる', kanjiLabel: '漢字（送りがなを含む語、そのまま）', readingLabel: 'よみがな（語全体）',
-      hint: '「借りる」のように、漢字のあとにひらがなが続く語を、そのまま「漢字」に入れてください（「借」と「りる」に分けて別の欄に入れる必要はありません）。送りがなの部分だけが、自動で答えの四角になります。' },
+    okuri: { kanji: '苦しい', reading: 'くるしい', kanjiLabel: '漢字（漢字と送りがなの語、そのまま）', readingLabel: 'よみがな（語全体）',
+      hint: '「苦しい」「祭り」のように、漢字のあとにひらがなが続く語を、そのまま「漢字」に入れてください。生徒は漢字と送りがなを一緒に書きます。以前の「送りがなだけ」の問題は、開いたときに自動でこの形に変わります。' },
     mas: { kanji: '鏡', reading: 'かがみ', kanjiLabel: '漢字（練習させたい語）', readingLabel: 'よみがな（あれば）',
       hint: '「漢字」に、くり返し書かせたい語を入れてください。' },
     trace: { kanji: '雪', reading: 'ゆき', kanjiLabel: '漢字（なぞらせたい語）', readingLabel: 'よみがな（あれば）',
@@ -2918,8 +2964,8 @@
       thumb: (st) => '<span class="tv-t"><i class="tv-u">巣</i></span>' + sideMark(st) },
     sentence: { desc: '□に入る漢字を書く', short: '□に漢字を書く',
       thumb: '<span class="tv-t">花の<i class="tv-b"></i>が</span>' },
-    okuri: { desc: '漢字のあとに続くひらがなを書く（「借りる」の「りる」）', short: '「借りる」の「りる」',
-      thumb: '<span class="tv-t"><ruby>借<rt>か</rt></ruby><i class="tv-b tv-tall"></i></span>' },
+    okuri: { desc: '漢字と送りがなを一緒に書く（「苦しい」）。以前の問題は自動で変わります。', short: '「苦しい」を書く',
+      thumb: '<span class="tv-t">く<i class="tv-b tv-tall"></i></span>' },
     mas: { desc: 'お手本を見て練習する', short: 'お手本を練習',
       thumb: '<span class="tv-t"><i class="tv-b tv-m">巣</i><i class="tv-b"></i><i class="tv-b"></i></span>' },
     trace: { desc: 'うすい字をなぞる', short: 'うすい字をなぞる',
@@ -3062,12 +3108,25 @@
   let renamingId = null;
 
   function readSets() {
+    let list;
     try {
-      const list = JSON.parse(localStorage.getItem(SETS_KEY) || '[]');
-      return Array.isArray(list) ? list.filter((set) => set && typeof set === 'object') : [];
+      list = JSON.parse(localStorage.getItem(SETS_KEY) || '[]');
     } catch (error) {
       return [];
     }
+    if (!Array.isArray(list)) return [];
+    list = list.filter((set) => set && typeof set === 'object');
+    let changed = false;
+    list.forEach((set) => {
+      if (!Array.isArray(set.questions)) return;
+      const mig = KI.migrateOkuriList(set.questions);
+      if (!mig.changed) return;
+      set.questions = mig.questions;
+      changed = true;
+      queueOkuriNotice(mig, { scope: 'set', name: str(set.name) });
+    });
+    if (changed) writeSets(list);
+    return list;
   }
 
   function writeSets(list) {
@@ -3297,15 +3356,65 @@
   function normalizeIncomingSet(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const questions = Array.isArray(raw.questions) ? raw.questions.map(normalizeQuestion) : [];
+    const mig = KI.migrateOkuriList(questions);
     const settings = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
-    if (!questions.length && !str(settings.strokeText)) return null;
-    return {
+    if (!mig.questions.length && !str(settings.strokeText)) return null;
+    const set = {
       id: str(raw.id) || uid(),
       name: str(raw.name).slice(0, 40) || phrase('無題', 'Untitled'),
       savedAt: Number(raw.savedAt) || Date.now(),
-      questions: questions,
+      questions: mig.questions,
       settings: settings
     };
+    if (mig.changed) set._okuriMig = mig;
+    return set;
+  }
+
+  const okuriNotice = { show: false, items: [] };
+
+  function queueOkuriNotice(mig, where) {
+    if (!mig || !mig.changed) return;
+    okuriNotice.show = true;
+    (mig.needs || []).forEach((n) => {
+      okuriNotice.items.push(where && where.scope === 'set'
+        ? { scope: 'set', name: where.name || '', n: n }
+        : { scope: 'test', n: n });
+    });
+  }
+
+  function applyOkuriMigration(mig, where) {
+    if (!mig || !mig.changed) return;
+    state.questions = mig.questions;
+    queueOkuriNotice(mig, where);
+    persist();
+  }
+
+  function okuriNoticeText() {
+    const head = phrase(
+      '送りがなの問題は、漢字と送りがなを一緒に書く形に変えました。',
+      'Okurigana questions now ask for the kanji and the okurigana together.'
+    );
+    if (!okuriNotice.items.length) return head;
+    const names = okuriNotice.items.map((item) => (item.scope === 'set'
+      ? phrase('「' + item.name + '」の問' + item.n, '“' + item.name + '” question ' + item.n)
+      : phrase('問' + item.n, 'question ' + item.n)));
+    const unique = names.filter((name, index) => names.indexOf(name) === index);
+    return head + phrase(
+      unique.join('・') + 'は、もとの語を戻せなかったので、手で直してください。',
+      ' Please edit ' + unique.join(', ') + ' by hand; the whole word could not be rebuilt.'
+    );
+  }
+
+  function renderOkuriNotice() {
+    const node = $('okuriNotice');
+    if (!node) return;
+    if (!okuriNotice.show) {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.textContent = okuriNoticeText();
   }
 
   // ---- 保存・読み込み（ファイル） ---------------------------------------------
@@ -3330,7 +3439,8 @@
 
   /** いま開いている問題と設定を JSON ファイルにする（以前からの書き出し） */
   function exportFile() {
-    const data = { app: 'kanji-test-maker', version: 2, exportedAt: new Date().toISOString(), state };
+    applyOkuriMigration(KI.migrateOkuriList(state.questions), { scope: 'test' });
+    const data = { app: 'kanji-test-maker', version: 4, exportedAt: new Date().toISOString(), state };
     downloadJson(data, 'kanji-test-' + fileStamp() + '.json');
     toast(phrase('ファイルに書き出しました（' + state.questions.length + '問）', 'Exported a file (' + state.questions.length + (state.questions.length === 1 ? ' question' : ' questions') + ')'));
   }
@@ -3341,7 +3451,7 @@
       toast(phrase('書き出す問題がまだありません。', 'There is no saved list to export yet.'), 'warn');
       return;
     }
-    downloadJson({ app: 'kanji-test-maker', version: 3, kind: 'sets', exportedAt: new Date().toISOString(), sets: sets },
+    downloadJson({ app: 'kanji-test-maker', version: 4, kind: 'sets', exportedAt: new Date().toISOString(), sets: sets },
       'kanji-saved-tests-' + fileStamp() + '.json');
     toast(phrase('保存した一覧を書き出しました（' + sets.length + '件）', 'Exported the saved list (' + sets.length + ')'));
   }
@@ -3355,12 +3465,15 @@
       'Add ' + clean.length + ' from the file to the saved list. If one is already here, the newer copy is kept.'))) return;
     const byId = new Map(readSets().map((set) => [set.id, set]));
     clean.forEach((set) => {
+      if (set._okuriMig) queueOkuriNotice(set._okuriMig, { scope: 'set', name: set.name });
+      delete set._okuriMig;
       const prev = byId.get(set.id);
       if (!prev || (set.savedAt || 0) >= (prev.savedAt || 0)) byId.set(set.id, set);
     });
     const next = Array.from(byId.values()).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
     if (writeSets(next)) {
       renderSets();
+      renderOkuriNotice();
       toast(phrase('一覧を読み込みました（' + next.length + '件）', 'Imported the list (' + next.length + ')'));
     }
   }
@@ -3379,6 +3492,7 @@
         'Replace the open test with this file (' + source.questions.length + ' questions)?'))) return;
       Object.assign(state, defaultState());
       applyStored(source);
+      applyOkuriMigration(KI.migrateOkuriList(state.questions), { scope: 'test' });
       ui.openId = null;
       ui.bulkApply = null;
       syncControls();
@@ -3386,6 +3500,7 @@
       if (pasteImporter) pasteImporter.render();
       renderList();
       renderPaper();
+      renderOkuriNotice();
       persist();
       toast(phrase('読み込みました（' + state.questions.length + '問）', 'Imported (' + state.questions.length + (state.questions.length === 1 ? ' question' : ' questions') + ')'));
     } catch (error) {
@@ -3751,6 +3866,7 @@
     detectKyokasho();
     updatePrintLabels();
     if (pasteImporter) pasteImporter.render();
+    renderOkuriNotice();
     pagePlanCache.key = '';
     document.querySelectorAll('[data-set-lang]').forEach((btn) => {
       const on = btn.getAttribute('data-set-lang') === uiLang();
@@ -3800,6 +3916,7 @@
     try { history.replaceState({ view: state.view }, ''); } catch (error) { /* 何もしない */ }
     renderList();
     renderPaper();
+    renderOkuriNotice();
     if (state.view !== 'edit') scrollPreviewToStart();
     persist();
   }

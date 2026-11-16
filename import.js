@@ -13,7 +13,7 @@
     kaki: '書き（線のひらがな）',
     yomi: '読み（線の漢字）',
     sentence: '書き（文中の□）',
-    okuri: '送りがな',
+    okuri: '漢字と送りがな',
     mas: '練習マス',
     trace: 'なぞり書き',
     free: '自由入力'
@@ -27,6 +27,7 @@
     sentence: 'sentence', ana: 'sentence', blank: 'sentence', fill: 'sentence', '例文穴埋め': 'sentence', '穴埋め': 'sentence',
     '書き（文中の□）': 'sentence', '文中': 'sentence',
     okuri: 'okuri', okurigana: 'okuri', '送りがな': 'okuri', '送り仮名': 'okuri', '送り': 'okuri',
+    '漢字と送りがな': 'okuri',
     mas: 'mas', practice: 'mas', '練習マス': 'mas', '練習': 'mas',
     trace: 'trace', 'なぞり書き': 'trace', 'なぞり': 'trace',
     free: 'free', '自由入力': 'free', '自由': 'free'
@@ -52,12 +53,101 @@
   }
 
   /**
-   * 送りがな問題の分解：「借りる」→ { stem:'借', okuri:'りる' }。漢字＋かな（1〜4字）の語だけが対象。
-   * 「一つ」「大きい」のように、漢字のあとにかなが続く語は、答えはかなの部分だけになる。
+   * 送りがなの境目：「借りる」→ { stem:'借', okuri:'りる' }、「幸せ」→ { stem:'幸', okuri:'せ' }。
+   * 漢字のあとにひらがな（1〜4字）が続く語だけ。答えそのものは語全体を使う。
    */
   function okuriParts(word) {
     const m = String(word || '').trim().match(/^([一-鿿々]+)([ぁ-ゖ]{1,4})$/);
     return m ? { stem: m[1], okuri: m[2] } : null;
+  }
+
+  /**
+   * 例文の中に、答えの語を一つのまとまりとして置く。
+   * 「夏祭りに行く。」の「祭り」は、「夏」を残して語全体を枠にする。「夏祭」と「り」には分けない。
+   * 同じ語が何度あっても、すべて枠にする。語が文に無いときは null。
+   */
+  function placeOkuri(sentence, word) {
+    const s = String(sentence || '');
+    const w = String(word || '').trim();
+    if (!w || s.indexOf(w) < 0) return null;
+    const parts = [];
+    let i = 0;
+    while (i < s.length) {
+      const at = s.indexOf(w, i);
+      if (at < 0) {
+        parts.push({ t: 'text', v: s.slice(i) });
+        break;
+      }
+      if (at > i) parts.push({ t: 'text', v: s.slice(i, at) });
+      parts.push({ t: 'box' });
+      i = at + w.length;
+    }
+    return parts;
+  }
+
+  const RE_KANJI_RUN = /^[一-鿿々]+$/;
+  const RE_HIRA_END = /^[ぁ-ゖ]{1,4}$/;
+
+  /**
+   * 古い「送りがなだけを書かせる」問題を、漢字と送りがなを一緒に書く形へ直す。
+   * もう一度呼んでも、直したあとの問題は変わらない。
+   * 語を確実に戻せないときは okuriNeedsEdit を付け、漢字と答えは別の語に書き換えない。
+   */
+  function migrateOkuriQuestion(q) {
+    if (!q || typeof q !== 'object') return { question: q, changed: false, needsEdit: false };
+    const type = normType(q.type) || q.type;
+    if (type !== 'okuri') {
+      if (q.okuriNeedsEdit) {
+        const question = Object.assign({}, q);
+        delete question.okuriNeedsEdit;
+        return { question, changed: true, needsEdit: false };
+      }
+      return { question: q, changed: false, needsEdit: false };
+    }
+    const kanji = String(q.kanji || '').trim();
+    const answer = String(q.answer || '').trim();
+    const reading = String(q.reading || '').trim();
+    const sentence = String(q.sentence || '');
+    const parts = okuriParts(kanji);
+
+    function finish(nextKanji, nextAnswer, needsEdit) {
+      const changed = q.type !== 'okuri' || String(q.kanji || '') !== nextKanji || String(q.answer || '') !== nextAnswer || !!q.okuriNeedsEdit !== !!needsEdit;
+      if (!changed) return { question: q, changed: false, needsEdit: !!needsEdit };
+      const question = Object.assign({}, q, { type: 'okuri', kanji: nextKanji, answer: nextAnswer });
+      if (needsEdit) question.okuriNeedsEdit = true;
+      else delete question.okuriNeedsEdit;
+      return { question, changed: true, needsEdit: !!needsEdit };
+    }
+
+    if (parts && answer === kanji) return finish(kanji, kanji, false);
+    if (parts && (answer === parts.okuri || answer === '')) return finish(kanji, kanji, false);
+
+    const answerParts = okuriParts(answer);
+    if (RE_KANJI_RUN.test(kanji) && answerParts && answerParts.stem === kanji) return finish(answer, answer, false);
+
+    if (RE_KANJI_RUN.test(kanji) && RE_HIRA_END.test(answer) && answer !== reading) {
+      const combined = kanji + answer;
+      const combinedParts = okuriParts(combined);
+      if (combinedParts && combinedParts.stem === kanji && combinedParts.okuri === answer) {
+        const readingOk = !reading || (reading.endsWith(answer) && reading.length > answer.length);
+        const sentenceOk = !sentence || sentence.includes(combined) || (!!reading && sentence.includes(reading));
+        if (readingOk && sentenceOk) return finish(combined, combined, false);
+      }
+    }
+
+    return finish(kanji, answer, true);
+  }
+
+  function migrateOkuriList(questions) {
+    const needs = [];
+    let changed = false;
+    const next = (Array.isArray(questions) ? questions : []).map((q, index) => {
+      const result = migrateOkuriQuestion(q);
+      if (result.changed) changed = true;
+      if (result.needsEdit) needs.push(index + 1);
+      return result.question;
+    });
+    return { questions: next, changed, needs };
   }
 
   /** 題型ごとの「答え」の既定値（先生が空欄にしたとき自動で入る） */
@@ -65,7 +155,11 @@
     switch (type || q.type) {
       case 'yomi': return q.reading || '';
       case 'free': return q.answer || '';
-      case 'okuri': { const p = okuriParts(q.kanji); return p ? p.okuri : (q.kanji || ''); }
+      case 'okuri': {
+        const word = String((q && q.kanji) || '').trim();
+        if (okuriParts(word)) return word;
+        return word;
+      }
       default: return q.kanji || '';
     }
   }
@@ -95,9 +189,11 @@
       if (!sentence) warns.push('例文が空です');
       else if (!inSentence && !hasBlank) warns.push('例文に「' + (q.kanji || '答え') + '」が含まれていません');
     } else if (q.type === 'okuri') {
-      if (!okuriParts(q.kanji)) warns.push('送りがな問題は「借りる」のように、漢字のあとにひらがなが続く語を入れてください');
+      if (q.okuriNeedsEdit) warns.push('この送りがなの問題は、漢字と送りがなの語を確実に戻せませんでした。漢字と答えを手で直してください。');
+      else if (!okuriParts(q.kanji)) warns.push('送りがなの問題は「苦しい」のように、漢字のあとにひらがなが続く語を入れてください。答えは語全体です。');
       if (!q.reading) warns.push('よみがなが空です');
-      if (q.kanji && sentence && !inSentence) warns.push('例文に「' + q.kanji + '」が含まれていません');
+      const inReading = !!q.reading && sentence.includes(q.reading);
+      if (q.kanji && sentence && !inSentence && !inReading && !q.okuriNeedsEdit) warns.push('例文に「' + q.kanji + '」も、そのよみも含まれていません');
     } else if (q.type === 'mas' || q.type === 'trace') {
       if (!q.kanji) warns.push('漢字が空です');
     } else if (q.type === 'free') {
@@ -176,6 +272,7 @@
         if (found.inferred) item.gradeInferred = true;
       }
     }
+    if (item.type === 'okuri') return migrateOkuriQuestion(item).question;
     return item;
   }
 
@@ -476,6 +573,7 @@
         if (sentenceLen > limit) item.flags.push({ kind: 'long', part: 'sentence', length: sentenceLen, limit: limit, fontMm: MIN_FONT_MM });
       }
       if (item._weak) item.flags.push({ kind: 'malformed', detail: item._note || 'この行は、問題の形として読み取れません。' });
+      if (item.okuriNeedsEdit) item.flags.push({ kind: 'edit', detail: '送りがなの語を確実に戻せませんでした。漢字と答えを手で直してください。' });
     });
 
     const seenLine = new Map();
@@ -528,11 +626,11 @@
       '【条件】',
       '・対象：' + range + '（学年別漢字配当表の漢字）',
       '・問題数：' + count + '問',
-      '・用紙：' + paper + '（例文は短くする。書きの答えは10字まで、読みの答えは12字まで、送りがなは6字まで）',
+      '・用紙：' + paper + '（例文は短くする。書きの答えは10字まで、読みの答えは12字まで、漢字と送りがなの答えは6字まで）',
       '・同じ漢字を重ねて出さない',
       '・例文は自然な日本語で、その学年までに習う漢字とひらがな・カタカナだけで書く（まだ習っていない漢字はひらがなにする）',
       '・出題する語は、例文の中にそのままの形で1回だけ入れる',
-      '・送りがなの問題も、語全体を漢字の位置に書く（例：借りる（かりる）／本を借りる。）',
+      '・送りがなの問題は、漢字と送りがなを一緒に書かせる。語全体を漢字の位置に書き、答えも語全体にする（例：苦しい（くるしい）／いきがくるしい。）',
       theme ? '・テーマ：' + theme : null,
       '',
       '【出力】説明は要りません。1行に1問、次の形だけを出してください。',
@@ -544,7 +642,7 @@
       '',
       '（JSONの配列で出す場合）',
       '[{"type":"kaki","grade":3,"kanji":"巣","reading":"す","sentence":"くもの巣がはる。","answer":"巣"}]',
-      'type は kaki（書き） / yomi（読み） / sentence（文中の□） / okuri（送りがな） / mas（練習マス） / trace（なぞり書き） / free（自由入力） のいずれか。'
+      'type は kaki（書き） / yomi（読み） / sentence（文中の□） / okuri（漢字と送りがな） / mas（練習マス） / trace（なぞり書き） / free（自由入力） のいずれか。'
     );
     return lines.filter((line) => line !== null).join('\n');
   }
@@ -569,7 +667,8 @@
   }
 
   global.KanjiImport = {
-    TYPES, TYPE_LABELS, STYLES, STYLE_LABELS, okuriParts,
+    TYPES, TYPE_LABELS, STYLES, STYLE_LABELS, okuriParts, placeOkuri,
+    migrateOkuriQuestion, migrateOkuriList,
     normType, normStyle, defaultAnswer, checkQuestion, hasBlank, fillBlank,
     parseBulk, cleanPastedText, inferGrade, columnBudget, buildPrompt, AI_SITES, BOX_CAP
   };

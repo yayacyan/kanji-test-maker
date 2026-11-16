@@ -741,6 +741,17 @@ details.tool:not([open]) { display: none; }
   line-height: 1.5;
 }
 .inline-notice[hidden] { display: none !important; }
+.okuri-notice {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: var(--primary-soft);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.okuri-notice[hidden] { display: none !important; }
+.chip.is-edit { background: var(--primary-soft); color: var(--ink); }
 .inline-notice.is-warn { background: var(--primary-soft); color: var(--ink); }
 .inline-notice .soft-btn { min-height: 40px; }
 @media (min-width: 1000px) {
