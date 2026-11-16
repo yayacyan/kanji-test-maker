@@ -51,7 +51,7 @@
             <div class="hero-copy">
               <p class="eyebrow" data-i18n="eyebrow">小学校の漢字テスト作成</p>
               <h2 data-i18n="hero-title" data-i18n-html><span class="hero-line">縦書きの漢字テストを、</span><span class="hero-line">その場で作る。</span></h2>
-              <p class="hero-sub" data-i18n="hero-sub" data-i18n-html>学年から選ぶ・自分で入れる・写真から。できたら、そのまま印刷できます。<br />書きじゅんをおぼえる「筆順練習プリント」も作れます。</p>
+              <p class="hero-sub" data-i18n="hero-sub" data-i18n-html>学年から選ぶ・自分で入れる・写真は自分のAIへ。できたら、そのまま印刷できます。<br />書きじゅんをおぼえる「筆順練習プリント」も作れます。</p>
             </div>
             <div class="hero-sample" aria-hidden="true">
               <span class="hs-no">①</span>
@@ -64,7 +64,7 @@
           <div class="quick-actions" id="quickActions" role="tablist" aria-label="つくり方をえらぶ" data-i18n-aria="how">
             <button class="tile" type="button" data-goto="draw" role="tab"><span class="glyph" aria-hidden="true">学</span><strong data-i18n="tile-grade">学年から</strong><span class="sub" data-i18n="tile-grade-sub">小1〜6を自動で</span></button>
             <button class="tile" type="button" data-goto="custom" role="tab"><span class="glyph" aria-hidden="true">書</span><strong data-i18n="tile-custom">自分で</strong><span class="sub" data-i18n="tile-custom-sub">打つ・貼り付け</span></button>
-            <button class="tile" type="button" data-goto="import" role="tab"><span class="glyph" aria-hidden="true">写</span><strong data-i18n="tile-import">写真・AI</strong><span class="sub" data-i18n="tile-import-sub">写真やAIから</span></button>
+            <button class="tile" type="button" data-goto="import" role="tab"><span class="glyph" aria-hidden="true">写</span><strong data-i18n="tile-import">写真・AI</strong><span class="sub" data-i18n="tile-import-sub">3ステップで貼る</span></button>
             <button class="tile tile-preview" type="button" data-goto="preview"><strong data-i18n="tile-preview">プレビュー</strong></button>
           </div>
 
@@ -80,61 +80,50 @@
           <details class="tool" id="tool-import" name="tool">
             <summary data-i18n="sum-import">写真・AIから取り込む</summary>
             <div class="tool-body">
-              <h3 class="sub-title" data-i18n="ocr-title">写真から読み取る</h3>
-              <div class="grid-two">
-                <button type="button" id="ocrCameraBtn" class="soft-btn full-width" data-i18n="ocr-camera">写真を撮る</button>
-                <button type="button" id="ocrPickBtn" class="soft-btn full-width" data-i18n="ocr-pick">画像を選ぶ</button>
+              <p id="aiPrivacy" class="ai-privacy" data-i18n="ai-privacy">写真を使うときは、その写真はあなたが自分で開いたAI（ChatGPTやGeminiなど）に送られます。あとの扱いは、そのサービスの決まりによります。写真はこのサイトのサーバーには送られません。このサイトが代わりに送ったり、保存したりもしません。送る前に、子どもの名前、顔、関係のない背景は切り取ってください。このサイトでは写真を読み取りません。ネットがないときや、AIを使わないときは、下の欄に自分で文字を貼ってください。</p>
+
+              <div class="pill-group" id="promptModePills" role="group" aria-label="お願い文の種類">
+                <button type="button" class="pill-btn" data-prompt-mode="photo" data-i18n="mode-photo">写真から</button>
+                <button type="button" class="pill-btn" data-prompt-mode="write" data-i18n="mode-write">AIに作ってもらう</button>
               </div>
-              <input id="ocrCamera" type="file" accept="image/*" capture="environment" hidden />
-              <input id="ocrFile" type="file" accept="image/*" hidden />
 
-              <details class="mini-details">
-                <summary data-i18n="ocr-settings">読み取りの設定</summary>
-                <div class="grid-two">
-                  <label>
-                    <span class="field-label" data-i18n="ocr-method">読み取り方法</span>
-                    <select id="ocrProvider" class="select-input"></select>
-                  </label>
-                  <label class="check-row">
-                    <input type="checkbox" id="ocrVertical" />
-                    <span data-i18n="ocr-vertical">縦書きの写真のときはチェック</span>
-                  </label>
-                </div>
-              </details>
-              <img id="ocrThumb" class="ocr-thumb" alt="読み取り中の写真" hidden />
-              <div id="ocrStatus" class="status-box" role="status" data-i18n="ocr-status">写真を選ぶと、読み取りを始めます。</div>
-
-              <label class="field-label mt-12" for="ocrText" data-i18n="ocr-result">読み取り結果（この欄で直接直せます）</label>
-              <textarea id="ocrText" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。&#10;歩く,あるく,公園を歩く。&#10;山 川 空"></textarea>
-              <div id="ocrPreview" class="import-preview"></div>
-              <div class="mt-12">
-                <span class="field-label" id="ocrTypeLabel" data-i18n="q-type">問題の種類</span>
-                <select id="ocrType" class="select-input" data-import-type="ocr" hidden aria-hidden="true" tabindex="-1"></select>
-                <div class="type-picker is-compact" data-for="ocrType" data-label="ocrTypeLabel"></div>
-              </div>
-              <button type="button" id="ocrAddBtn" class="primary-btn full-width mt-12" data-i18n="add-questions">問題に追加</button>
-
-              <hr class="divider" />
-
-              <h3 class="sub-title" data-i18n="ai-title">AIに問題を作ってもらう</h3>
-              <p class="hint" data-i18n="ai-hint">お使いのAI（ChatGPTなど）に「お願い文」を貼り付けて、返ってきた答えをこの下の欄に貼り付けます。</p>
-              <label class="field-label" for="aiTheme" data-i18n="ai-theme">テーマ（なくてもOK）</label>
-              <input id="aiTheme" class="text-input" type="text" placeholder="例：春の生きもの、学校生活" data-i18n-placeholder="ph-theme" />
-              <button type="button" id="copyPromptBtn" class="soft-btn full-width mt-12" data-i18n="ai-copy">AIへのお願い文をコピー</button>
-              <details class="mini-details">
-                <summary data-i18n="ai-see">コピーされる内容を見る</summary>
-                <textarea id="aiPromptText" class="text-input" rows="8" readonly></textarea>
-              </details>
-
-              <label class="field-label mt-12" for="aiInput" data-i18n="ai-paste">AIの答えを貼り付け（形式：漢字（よみ）／例文）</label>
-              <textarea id="aiInput" class="text-input" rows="6" placeholder="巣（す）／くもの巣がはる。"></textarea>
-              <div id="aiPreview" class="import-preview"></div>
-              <div class="mt-12">
-                <span class="field-label" id="aiTypeLabel" data-i18n="q-type">問題の種類</span>
-                <select id="aiType" class="select-input" data-import-type="ai" hidden aria-hidden="true" tabindex="-1"></select>
-                <div class="type-picker is-compact" data-for="aiType" data-label="aiTypeLabel"></div>
-              </div>
-              <button type="button" id="aiAddBtn" class="primary-btn full-width mt-12" data-i18n="add-questions">問題に追加</button>
+              <ol class="ai-steps">
+                <li class="ai-step">
+                  <h3 data-i18n="step1-title">1. お願い文をコピー</h3>
+                  <p class="hint" data-i18n="step1-hint">中身を見てからコピーできます。写真を送る前に、端末の写真アプリで、名前・顔・関係のない背景を切り取ってください。</p>
+                  <label class="field-label" for="aiTheme" data-i18n="ai-theme">テーマ（なくてもOK）</label>
+                  <input id="aiTheme" class="text-input" type="text" placeholder="例：春の生きもの、学校生活" data-i18n-placeholder="ph-theme" />
+                  <button type="button" id="copyPromptBtn" class="soft-btn full-width mt-12" data-i18n="ai-copy">お願い文をコピー</button>
+                  <details class="mini-details">
+                    <summary data-i18n="ai-see">コピーされる内容を見る</summary>
+                    <textarea id="aiPromptText" class="text-input" rows="8" readonly></textarea>
+                  </details>
+                </li>
+                <li class="ai-step">
+                  <h3 data-i18n="step2-title">2. ChatGPTかGeminiを開く</h3>
+                  <p class="hint" id="step2Hint" data-i18n="step2-hint">公式のサイトを新しいタブで開きます。このサイトは写真を送らず、ログインもしません。写真から作るときは、開いた先で写真を添付してください。</p>
+                  <div class="ai-open">
+                    <a id="openChatGpt" class="soft-btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" data-i18n="open-chatgpt">ChatGPTを開く</a>
+                    <a id="openGemini" class="soft-btn" href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer" data-i18n="open-gemini">Geminiを開く</a>
+                  </div>
+                </li>
+                <li class="ai-step">
+                  <h3 data-i18n="step3-title">3. 答えを、同じ欄に貼る</h3>
+                  <p class="hint" data-i18n="step3-hint" data-i18n-html>AIの答えも、自分で用意した漢字も、この欄に貼ります。<strong>漢字だけでも大丈夫</strong>です（例：巣 歩 観）。次の形も使えます。</p>
+                  <pre class="format-sample">巣（す）／くもの巣がはる。
+巣,す,くもの巣がはる。
+花の（　）が出る。|芽</pre>
+                  <label class="field-label" for="pasteText" data-i18n="paste-label">貼り付け</label>
+                  <textarea id="pasteText" class="text-input" rows="6" aria-label="貼り付け" placeholder="巣（す）／くもの巣がはる。&#10;客（きゃく）／お客さん"></textarea>
+                  <div id="pastePreview" class="import-preview"></div>
+                  <div class="mt-12">
+                    <span class="field-label" id="pasteTypeLabel" data-i18n="paste-type">追加する問題の種類</span>
+                    <select id="pasteType" class="select-input" data-import-type="paste" hidden aria-hidden="true" tabindex="-1"></select>
+                    <div class="type-picker is-compact" data-for="pasteType" data-label="pasteTypeLabel"></div>
+                  </div>
+                  <button type="button" id="pasteAddBtn" class="primary-btn full-width mt-12" data-i18n="add-questions">問題に追加</button>
+                </li>
+              </ol>
             </div>
           </details>
 
@@ -236,18 +225,8 @@
               <hr class="divider" />
 
               <h3 class="sub-title" data-i18n="bulk-title">まとめて貼り付け</h3>
-              <p class="hint" data-i18n="bulk-hint" data-i18n-html>1行に1問。<strong>漢字だけ書いても大丈夫</strong>です（例：巣 歩 観）。小学校の漢字なら、よみがなと例文が自動で入ります。次の形も使えます。</p>
-              <pre class="format-sample">巣（す）／くもの巣がはる。
-巣,す,くもの巣がはる。
-花の（　）が出る。|芽</pre>
-              <textarea id="bulkText" class="text-input" rows="5" aria-label="まとめて貼り付け" placeholder="巣 歩 観"></textarea>
-              <div id="bulkPreview" class="import-preview"></div>
-              <div class="mt-12">
-                <span class="field-label" id="bulkTypeLabel" data-i18n="bulk-type">まとめて追加する問題の種類</span>
-                <select id="bulkType" class="select-input" data-import-type="bulk" hidden aria-hidden="true" tabindex="-1"></select>
-                <div class="type-picker is-compact" data-for="bulkType" data-label="bulkTypeLabel"></div>
-              </div>
-              <button type="button" id="bulkAddBtn" class="primary-btn full-width mt-12" data-i18n="add-questions">問題に追加</button>
+              <p class="hint" data-i18n="bulk-hint">漢字だけ、漢字（よみ）／例文、AIの答えは、同じ貼り付け欄に入れます。</p>
+              <button type="button" id="openPasteBtn" class="soft-btn full-width" data-i18n="open-paste">貼り付け欄を開く</button>
             </div>
           </details>
 

@@ -8,6 +8,8 @@ import { spawn, execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { runBulkTypeChecks } from './bulk-type.mjs';
+import { runImportRuleChecks } from './import-rules.mjs';
+import { runPrAChecks } from './pr-a.mjs';
 
 const ROOT = '/workspace';
 const BASE = 'http://127.0.0.1:8765/index.html';
@@ -56,6 +58,8 @@ try {
   await waitServer();
   const browser = await chromium.launch();
 
+  runImportRuleChecks(record);
+  await runPrAChecks({ browser, record, base: BASE });
   await runBulkTypeChecks({ browser, record, base: BASE });
 
   // --- sponsor link stays hidden until a URL is set, and never on a printed sheet or in the native app ---
@@ -665,7 +669,7 @@ try {
       await swPage.waitForSelector('#generateBtn', { timeout: 15000 });
       record('offline reload shows the app', (await swPage.locator('#generateBtn').innerText()) === '問題を作る');
       await swCtx.setOffline(false);
-      writeFileSync(swPath, swOriginal.replace('2026-11-05-notebook-2', '2026-11-05-notebook-3'));
+      writeFileSync(swPath, swOriginal.replace('2026-11-15-v2a', '2026-11-15-v2b'));
       await swPage.evaluate(() => navigator.serviceWorker.getRegistration().then((reg) => reg && reg.update()));
       await swPage.waitForSelector('#updateNotice:not([hidden])', { timeout: 20000 });
       record('new version notice appears', true);
