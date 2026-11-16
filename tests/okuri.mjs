@@ -194,6 +194,9 @@ export function runOkuriRuleChecks(record) {
     en.includes('2026-11-16') && /kanji and the okurigana/i.test(en) && en.includes('苦しい') && en.includes('夏祭り'));
   record('changelog zh explains the new okurigana questions',
     zh.includes('2026-11-16') && zh.includes('苦しい') && zh.includes('夏祭り') && zh.includes('手動'));
+  record('changelog uses the built-in list wording instead of 題庫',
+    ja.includes('内蔵の漢字リスト') && zh.includes('內建漢字清單查得到的詞') &&
+    !ja.includes('題庫') && !en.includes('題庫') && !zh.includes('題庫'));
 }
 
 function questionPaperFacts(page, answer) {
