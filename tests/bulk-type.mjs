@@ -57,7 +57,7 @@ export async function runBulkTypeChecks({ browser, record, base }) {
   }
 
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-  record('service worker cache version is v2a', /VERSION = '2026-11-15-v2a'/.test(sw), (sw.match(/VERSION = '[^']+'/) || [''])[0]);
+  record('service worker cache version is v2b', /VERSION = '2026-11-16-v2b'/.test(sw), (sw.match(/VERSION = '[^']+'/) || [''])[0]);
 
   {
     const { ctx, page, errors } = await open('ja-JP', { questions: [KAKI, YOMI] });
@@ -161,7 +161,7 @@ export async function runBulkTypeChecks({ browser, record, base }) {
       return note && !note.hidden;
     });
     const state = await bulkState(page);
-    record('skipped questions leave the select on （混在） and the note explains them', state.value === 'mixed' && state.text === '（混在）' && state.note === '1問を「送りがな」に変更しました（1問は、漢字のあとにひらがなが続く語ではないので、そのままです）', state.note);
+    record('skipped questions leave the select on （混在） and the note explains them', state.value === 'mixed' && state.text === '（混在）' && state.note === '1問を「漢字と送りがな」に変更しました（1問は、漢字のあとにひらがなが続く語ではないので、そのままです）', state.note);
     await ctx.close();
   }
 

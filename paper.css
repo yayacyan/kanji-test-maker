@@ -271,13 +271,15 @@
   color: #333;
 }
 
-/* 送りがな：字数がわからない1つの長い枠（十字の補助線は付けない） */
-.box.okuri-one { height: calc(var(--k, 2) * 1.25em); }
+/* 漢字と送りがな：語全体が一つの枠。途中で次の列へ割れない */
+.okuri-unit { white-space: nowrap; }
+.box.okuri-one { width: 1.4em; height: calc(var(--k, 2) * 1.5em); }
 .box.okuri-one::before, .box.okuri-one::after { display: none; }
 .box.okuri-one .ans-okuri {
-  position: absolute; inset: 0.1em 0 0 0;
-  -webkit-writing-mode: vertical-rl; writing-mode: vertical-rl; text-orientation: upright; line-height: 1.05;
-  display: block; margin: 0 auto; width: 1.05em; color: #d22;
+  position: absolute; inset: 0.06em 0 0.02em;
+  -webkit-writing-mode: vertical-rl; writing-mode: vertical-rl; text-orientation: upright; line-height: 1.2;
+  display: block; margin: 0; width: auto; color: #d22;
+  white-space: nowrap;
 }
 
 /* 種類が変わる最初の問題の上に付ける「ここから ○○」の札。札のある段は、全問の番号の高さをそろえる */

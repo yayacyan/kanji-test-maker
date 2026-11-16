@@ -10,6 +10,7 @@ import path from 'node:path';
 import { runBulkTypeChecks } from './bulk-type.mjs';
 import { runImportRuleChecks } from './import-rules.mjs';
 import { runPrAChecks } from './pr-a.mjs';
+import { runOkuriRuleChecks, runOkuriPageChecks } from './okuri.mjs';
 
 const ROOT = '/workspace';
 const BASE = 'http://127.0.0.1:8765/index.html';
@@ -59,7 +60,9 @@ try {
   const browser = await chromium.launch();
 
   runImportRuleChecks(record);
+  runOkuriRuleChecks(record);
   await runPrAChecks({ browser, record, base: BASE });
+  await runOkuriPageChecks({ browser, record, base: BASE });
   await runBulkTypeChecks({ browser, record, base: BASE });
 
   // --- sponsor link stays hidden until a URL is set, and never on a printed sheet or in the native app ---
@@ -567,7 +570,7 @@ try {
     await page.click('#exportSetsBtn');
     const download = await downloadPromise;
     const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
-    record('export saved list as JSON', exported.kind === 'sets' && exported.version === 3 && exported.sets.length === 2, 'n=' + (exported.sets || []).length);
+    record('export saved list as JSON', exported.kind === 'sets' && exported.version === 4 && exported.sets.length === 2, 'n=' + (exported.sets || []).length);
     writeFileSync('/tmp/kanji-sets.json', JSON.stringify(exported));
     await page.evaluate(() => localStorage.removeItem('kanji-test-maker-sets'));
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -669,7 +672,7 @@ try {
       await swPage.waitForSelector('#generateBtn', { timeout: 15000 });
       record('offline reload shows the app', (await swPage.locator('#generateBtn').innerText()) === '問題を作る');
       await swCtx.setOffline(false);
-      writeFileSync(swPath, swOriginal.replace('2026-11-15-v2a', '2026-11-15-v2b'));
+      writeFileSync(swPath, swOriginal.replace('2026-11-16-v2b', '2026-11-16-v2c'));
       await swPage.evaluate(() => navigator.serviceWorker.getRegistration().then((reg) => reg && reg.update()));
       await swPage.waitForSelector('#updateNotice:not([hidden])', { timeout: 20000 });
       record('new version notice appears', true);

@@ -211,7 +211,7 @@
     'opt-date': { ja: '日付の欄を入れる', en: 'Date line' },
     'opt-score': { ja: '点数の欄を入れる', en: 'Score line' },
     'opt-ruby': { ja: '例文の空欄に、読みがなを小さく付ける', en: 'Show a small reading beside fill-in boxes' },
-    'opt-okuri': { ja: '送りがなのマスを字数どおりにする（字数から答えがわかります）', en: 'Make okurigana boxes match the number of letters (that gives the answer away)' },
+    'opt-okuri': { ja: '漢字と送りがなのマスを字数どおりにする（字数から答えがわかります）', en: 'Make one box per character of the whole word (that gives the length away)' },
     'opt-both': { ja: '印刷するとき、問題用紙と解答用紙を続けて出す', en: 'When printing, include the question sheet and the answer sheet' },
     'pdf-hint': { ja: 'PDFにするとき：印刷の画面で「PDFに保存」を選びます（用紙サイズは自動で合います）。端が切れるときは、余白を「なし」、倍率を「100%」にして、用紙を画面で選んだ大きさ（A4・レター・A3）に合わせてください。', en: 'To make a PDF: in the print dialog, choose “Save as PDF” (the paper size should match). If the edges are cut off, set margins to None, scale to 100%, and choose the same paper (A4, Letter, or A3).' },
     'print-hint': { ja: 'できたら右上の「印刷 / PDF」を押します。印刷画面で「PDFとして保存」を選ぶと、ファイルにも残せます。', en: 'When it looks right, press Print / PDF. Choose “Save as PDF” if you want a file.' },
@@ -245,7 +245,7 @@
     kaki: { ja: '書き（線のひらがな）', en: 'Write (underlined hiragana)', descJa: 'ひらがなを漢字で書く', descEn: 'Write the kanji for the hiragana', shortJa: 'ひらがな→漢字', shortEn: 'Hiragana → kanji' },
     yomi: { ja: '読み（線の漢字）', en: 'Read (underlined kanji)', descJa: '漢字の読みを書く', descEn: 'Write the reading', shortJa: '漢字→ひらがな', shortEn: 'Kanji → hiragana' },
     sentence: { ja: '書き（文中の□）', en: 'Fill the box in the sentence', descJa: '□に入る漢字を書く', descEn: 'Write the kanji for the box', shortJa: '□に漢字を書く', shortEn: 'Kanji in the box' },
-    okuri: { ja: '送りがな', en: 'Okurigana', descJa: '漢字のあとに続くひらがなを書く（「借りる」の「りる」）', descEn: 'Write the hiragana after the kanji (the りる in 借りる)', shortJa: '「借りる」の「りる」', shortEn: 'The ending of 借りる' },
+    okuri: { ja: '漢字と送りがな', en: 'Kanji and okurigana', descJa: '漢字と送りがなを一緒に書く（「苦しい」）。以前の問題は自動で変わります。', descEn: 'Write the kanji and the okurigana together (苦しい). Older questions change automatically.', shortJa: '「苦しい」を書く', shortEn: 'Write 苦しい' },
     mas: { ja: '練習マス', en: 'Practice boxes', descJa: 'お手本を見て練習する', descEn: 'Copy the model into the boxes', shortJa: 'お手本を練習', shortEn: 'Copy the model' },
     trace: { ja: 'なぞり書き', en: 'Trace', descJa: 'うすい字をなぞる', descEn: 'Trace the light gray character', shortJa: 'うすい字をなぞる', shortEn: 'Trace the gray one' },
     free: { ja: '自由入力', en: 'Your own prompt', descJa: '問題文を、そのまま出す', descEn: 'Print the sentence as written', shortJa: '問題文のまま', shortEn: 'The sentence as-is' },
@@ -280,8 +280,8 @@
       en: { kanji: '芽', reading: '', kanjiLabel: 'Kanji (what goes in the box)', readingLabel: 'Reading (optional)', hint: 'Put the word that belongs in the box in Kanji. If the sentence contains that word, the box is added for you.' }
     },
     okuri: {
-      ja: { kanji: '借りる', reading: 'かりる', kanjiLabel: '漢字（送りがなを含む語、そのまま）', readingLabel: 'よみがな（語全体）', hint: '「借りる」のように、漢字のあとにひらがなが続く語を、そのまま「漢字」に入れてください（「借」と「りる」に分けて別の欄に入れる必要はありません）。送りがなの部分だけが、自動で答えの四角になります。' },
-      en: { kanji: '借りる', reading: 'かりる', kanjiLabel: 'Kanji (the whole word, including the ending)', readingLabel: 'Reading (the whole word)', hint: 'Type the whole word, such as 借りる, in Kanji. You do not need to split 借 and りる. Only the ending becomes the answer boxes.' }
+      ja: { kanji: '苦しい', reading: 'くるしい', kanjiLabel: '漢字（漢字と送りがなの語、そのまま）', readingLabel: 'よみがな（語全体）', hint: '「苦しい」「祭り」のように、漢字のあとにひらがなが続く語を、そのまま「漢字」に入れてください。生徒は漢字と送りがなを一緒に書きます。以前の「送りがなだけ」の問題は、開いたときに自動でこの形に変わります。' },
+      en: { kanji: '苦しい', reading: 'くるしい', kanjiLabel: 'Kanji (the whole word)', readingLabel: 'Reading (the whole word)', hint: 'Type the whole word, such as 苦しい or 祭り, in Kanji. Students write the kanji and the okurigana together. Older questions that asked only for the ending change to this form when you open them.' }
     },
     mas: {
       ja: { kanji: '鏡', reading: 'かがみ', kanjiLabel: '漢字（練習させたい語）', readingLabel: 'よみがな（あれば）', hint: '「漢字」に、くり返し書かせたい語を入れてください。' },
