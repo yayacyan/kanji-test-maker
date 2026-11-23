@@ -191,6 +191,13 @@ export function runImportRuleChecks(record) {
     en.includes('2026-11-15') && en.includes('Tesseract') && en.includes('ChatGPT') && en.includes('Gemini') && /handwriting/i.test(en) && /red/i.test(en));
   record('changelog zh covers external AI and removed in-browser OCR',
     zh.includes('2026-11-15') && zh.includes('Tesseract') && zh.includes('ChatGPT') && zh.includes('Gemini') && zh.includes('手寫') && zh.includes('紅'));
+  record('changelog ja records the optional Ko-fi tip',
+    ja.includes('2026-11-23') && ja.includes('☕ 応援') && ja.includes('https://ko-fi.com/kanjicoffee') && ja.includes('任意のチップ'));
+  record('changelog en records the optional Ko-fi tip',
+    en.includes('2026-11-23') && en.includes('☕ Support') && en.includes('https://ko-fi.com/kanjicoffee') && /optional/i.test(en));
+  record('changelog zh-TW records the optional Ko-fi tip in Traditional Chinese',
+    zh.includes('2026-11-23') && zh.includes('☕ 贊助') && zh.includes('https://ko-fi.com/kanjicoffee') && zh.includes('小費') &&
+    !zh.includes('赞助') && !zh.includes('按钮'));
 
   record('readme no longer says the site reads photos with Tesseract',
     !/Tesseract/.test(files.find((f) => f.name === 'README.md').text) &&
