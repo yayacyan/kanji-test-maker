@@ -31,7 +31,8 @@
       .cl-lang-block.is-active { display: block; }
       .cl-foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.84rem; color: var(--faint); }
       .cl-sponsor { margin: 0 0 16px; color: var(--faint); font-size: 0.88rem; line-height: 1.6; }
-      .cl-sponsor a { color: var(--muted); font-weight: 700; text-underline-offset: 2px; }
+      .cl-sponsor a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 3px; border-radius: 4px; }
+      .cl-sponsor a:hover { color: var(--primary-hover); }
     </style>
   </head>
   <body class="changelog-body">
@@ -52,11 +53,11 @@
       </div>
 
       <p class="cl-sponsor" data-sponsor hidden>
-        <span data-sponsor-note></span><a data-sponsor-link href="#" target="_blank" rel="noopener" data-sponsor-label>応援する</a>
+        <a data-sponsor-link href="https://ko-fi.com/kanjicoffee" target="_blank" rel="noopener noreferrer" data-sponsor-label>役に立ったらコーヒー1杯で応援 ☕</a>
       </p>
 
       <!--
-        応援リンクを公開したときだけ、各言語の先頭に出す下書きです。いまは出しません。
+        応援リンクはサイトに出しています。更新履歴の本文へ移す文は、公開の承認のあとです。いまは各言語の先頭には出しません。
         ja: この道具を応援できるようにしました。
         en: You can now support this tool.
         zh: 現在可以贊助這個工具。
@@ -457,9 +458,9 @@
         var BACK = { ja: 'サイトに戻る', en: 'Back to the site', zh: '回到網站' };
         var SUB = { ja: '更新履歴', en: 'Changelog', zh: '更新日誌' };
         var SPONSOR = {
-          ja: { note: 'この道具が役に立ったら、制作を', link: '応援する' },
-          en: { note: 'If this tool helps, you can ', link: 'support it' },
-          zh: { note: '如果這個工具有幫到你，可以', link: '贊助一下' }
+          ja: '役に立ったらコーヒー1杯で応援 ☕',
+          en: 'Enjoying it? Buy me a coffee ☕',
+          zh: '覺得好用的話，請我喝杯咖啡 ☕'
         };
         function setLang(lang) {
           document.querySelectorAll('.cl-lang-block').forEach(function (el) {
@@ -471,13 +472,10 @@
           document.querySelector('[data-t="footnote"]').textContent = FOOT[lang];
           document.querySelector('[data-t="back"]').textContent = BACK[lang];
           document.querySelector('[data-t="subtitle"]').textContent = SUB[lang];
-          var copy = SPONSOR[lang] || SPONSOR.ja;
-          var note = document.querySelector('[data-sponsor-note]');
           var label = document.querySelector('[data-sponsor-label]');
-          if (note) note.textContent = copy.note;
-          if (label) label.textContent = copy.link;
+          if (label) label.textContent = SPONSOR[lang] || SPONSOR.ja;
           if (window.KanjiConfig) window.KanjiConfig.applySponsor(document);
-          document.documentElement.lang = lang;
+          document.documentElement.lang = lang === 'zh' ? 'zh-TW' : lang;
           try { localStorage.setItem('kanji-test-maker-changelog-lang', lang); } catch (error) { /* 保存できなくても表示は切り替わる */ }
         }
         document.querySelectorAll('.cl-lang-btn').forEach(function (b) {

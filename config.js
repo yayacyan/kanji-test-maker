@@ -1,10 +1,9 @@
-/* 応援リンクは、ここだけを書き換えます。空のあいだは、画面のどこにも出しません。
-   例: SPONSOR_URL = 'https://ko-fi.com/……'
+/* 応援リンクは、ここだけを書き換えます。空に戻すと、画面のどこにも出しません。
    ストアのアプリでは、外の応援リンクは出しません（ストアの決まり）。
    アプリ内の応援は ENABLE_IAP_TIPS を true にする前に、
    TODO: Google Play Billing と StoreKit をつないでください。 */
 (function (global) {
-  var SPONSOR_URL = '';
+  var SPONSOR_URL = 'https://ko-fi.com/kanjicoffee';
   var ENABLE_IAP_TIPS = false;
 
   function isNativeApp() {

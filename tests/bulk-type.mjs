@@ -57,7 +57,7 @@ export async function runBulkTypeChecks({ browser, record, base }) {
   }
 
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-  record('service worker cache version is v2a', /VERSION = '2026-11-15-v2a'/.test(sw), (sw.match(/VERSION = '[^']+'/) || [''])[0]);
+  record('service worker cache version is 2026-11-23-v1', /VERSION = '2026-11-23-v1'/.test(sw), (sw.match(/VERSION = '[^']+'/) || [''])[0]);
 
   {
     const { ctx, page, errors } = await open('ja-JP', { questions: [KAKI, YOMI] });

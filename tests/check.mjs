@@ -10,6 +10,7 @@ import path from 'node:path';
 import { runBulkTypeChecks } from './bulk-type.mjs';
 import { runImportRuleChecks } from './import-rules.mjs';
 import { runPrAChecks } from './pr-a.mjs';
+import { runKofiChecks } from './kofi.mjs';
 
 const ROOT = '/workspace';
 const BASE = 'http://127.0.0.1:8765/index.html';
@@ -62,50 +63,7 @@ try {
   await runPrAChecks({ browser, record, base: BASE });
   await runBulkTypeChecks({ browser, record, base: BASE });
 
-  // --- sponsor link stays hidden until a URL is set, and never on a printed sheet or in the native app ---
-  {
-    const { ctx, page } = await fresh(browser, 'ja-JP');
-    await page.goto(BASE);
-    await page.waitForSelector('#generateBtn');
-    const empty = await page.evaluate(() => ({
-      url: window.KanjiConfig.SPONSOR_URL,
-      hidden: [...document.querySelectorAll('[data-sponsor]')].every((el) => el.hidden),
-      support: document.getElementById('supportScreen').hidden
-    }));
-    record('sponsor UI is hidden while the URL is empty', empty.url === '' && empty.hidden && empty.support === true, JSON.stringify(empty));
-    await page.evaluate(() => {
-      window.KanjiConfig.SPONSOR_URL = 'https://example.test/support';
-      window.KanjiConfig.applySponsor(document);
-    });
-    const shown = await page.evaluate(() => {
-      const link = document.querySelector('footer [data-sponsor-link]');
-      const cs = getComputedStyle(link.closest('[data-sponsor]'));
-      return { hidden: link.closest('[data-sponsor]').hidden, display: cs.display, href: link.href, text: link.textContent };
-    });
-    record('sponsor link appears when a URL is set', shown.hidden === false && shown.display !== 'none' && shown.href === 'https://example.test/support' && shown.text === '応援する', JSON.stringify(shown));
-    await page.emulateMedia({ media: 'print' });
-    const printed = await page.evaluate(() => getComputedStyle(document.querySelector('footer [data-sponsor]')).display);
-    record('sponsor link is hidden in print', printed === 'none', printed);
-    await page.emulateMedia({ media: 'screen' });
-    await page.evaluate(() => {
-      window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android' };
-      window.KanjiConfig.applySponsor(document);
-    });
-    const native = await page.evaluate(() => {
-      const el = document.querySelector('footer [data-sponsor]');
-      return { hidden: el.hidden, display: getComputedStyle(el).display, native: document.documentElement.classList.contains('is-native') };
-    });
-    record('sponsor link is hidden inside the native app', native.hidden === true && native.display === 'none' && native.native === true, JSON.stringify(native));
-    await ctx.close();
-
-    const log = await browser.newContext({ locale: 'ja-JP', viewport: { width: 800, height: 700 } });
-    const logPage = await log.newPage();
-    await logPage.goto(BASE.replace('index.html', 'changelog.html'));
-    await logPage.waitForSelector('.cl-sponsor', { state: 'attached' });
-    const cl = await logPage.evaluate(() => document.querySelector('.cl-sponsor').hidden);
-    record('changelog sponsor line is hidden while the URL is empty', cl === true, String(cl));
-    await log.close();
-  }
+  await runKofiChecks({ browser, record, base: BASE });
 
   // --- locale defaults ---
   {
@@ -669,7 +627,7 @@ try {
       await swPage.waitForSelector('#generateBtn', { timeout: 15000 });
       record('offline reload shows the app', (await swPage.locator('#generateBtn').innerText()) === '問題を作る');
       await swCtx.setOffline(false);
-      writeFileSync(swPath, swOriginal.replace('2026-11-15-v2a', '2026-11-15-v2b'));
+      writeFileSync(swPath, swOriginal.replace('2026-11-23-v1', '2026-11-23-v2'));
       await swPage.evaluate(() => navigator.serviceWorker.getRegistration().then((reg) => reg && reg.update()));
       await swPage.waitForSelector('#updateNotice:not([hidden])', { timeout: 20000 });
       record('new version notice appears', true);
