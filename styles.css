@@ -248,7 +248,10 @@ label { display: block; }
 .site-footer a { color: var(--faint); font-size: 0.8rem; text-decoration: none; }
 .site-footer a:hover { color: var(--muted); text-decoration: underline; }
 .sponsor-line { margin: 0 0 8px; color: var(--faint); font-size: 0.8rem; line-height: 1.6; }
-.sponsor-line a { color: var(--muted); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+.sponsor-line a { color: var(--primary); font-weight: 700; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.sponsor-line a:hover { color: var(--primary-hover); }
+.sponsor-line a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.sponsor-near-pdf { margin: 0 0 10px; }
 .is-native [data-sponsor] { display: none !important; }
 .support-screen { max-width: 420px; margin: 0 auto 18px; padding: 0 16px; text-align: center; }
 .support-tiers { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
