@@ -77,6 +77,46 @@ export function runKofiStaticChecks(record) {
   record('the print area markup does not include the support link', !/#printArea[^>]*>[\s\S]*ko-fi/i.test(index));
 }
 
+async function brandCrossInside(page) {
+  return page.evaluate(() => {
+    const mark = document.querySelector('.brand-mark');
+    const box = mark.getBoundingClientRect();
+    const own = getComputedStyle(mark);
+    const before = getComputedStyle(mark, '::before');
+    const after = getComputedStyle(mark, '::after');
+    const cx = box.left + box.width / 2;
+    const cy = box.top + box.height / 2;
+    const hitIn = document.elementFromPoint(cx, cy);
+    const outside = [
+      [window.innerWidth / 2, 2],
+      [window.innerWidth / 2, Math.max(2, box.top - 6)],
+      [cx, 2]
+    ].filter(([x, y]) => x < box.left - 1 || x > box.right + 1 || y < box.top - 1 || y > box.bottom + 1);
+    const escaped = outside.filter(([x, y]) => {
+      const hit = document.elementFromPoint(x, y);
+      return hit === mark || (hit && mark.contains(hit));
+    });
+    return {
+      position: own.position,
+      before: { position: before.position, top: before.top, bottom: before.bottom, width: before.width },
+      after: { position: after.position, left: after.left, right: after.right, height: after.height },
+      insideHit: hitIn === mark || !!(hitIn && mark.contains(hitIn)),
+      escaped: escaped.length,
+      box: { w: Math.round(box.width), h: Math.round(box.height) }
+    };
+  });
+}
+
+function crossContained(info) {
+  return info.position === 'relative' &&
+    info.before.position === 'absolute' && info.after.position === 'absolute' &&
+    parseFloat(info.before.top) === 0 && parseFloat(info.before.bottom) === 0 &&
+    parseFloat(info.before.width) <= info.box.w &&
+    parseFloat(info.after.left) === 0 && parseFloat(info.after.right) === 0 &&
+    parseFloat(info.after.height) <= info.box.h &&
+    info.insideHit === true && info.escaped === 0;
+}
+
 async function alignDelta(page, linkSelector, buttonSelector) {
   return page.evaluate(({ linkSelector, buttonSelector }) => {
     function metrics(el) {
@@ -326,6 +366,21 @@ export async function runKofiChecks({ browser, record, base }) {
   await recordChangelogAlign('changelog Traditional Chinese support text shares the English button baseline');
   await log.close();
 
+  for (const width of [320, 390]) {
+    const crossCtx = await browser.newContext({ viewport: { width, height: 844 } });
+    const crossPage = await crossCtx.newPage();
+    await crossPage.goto(base);
+    await crossPage.waitForSelector('.brand-mark');
+    const home = await brandCrossInside(crossPage);
+    record('index brand cross stays inside the mark at ' + width + 'px', crossContained(home), JSON.stringify(home));
+    await crossPage.goto(base.replace('index.html', 'changelog.html'));
+    await crossPage.waitForSelector('.cl-head .brand-mark');
+    await crossPage.click('[data-lang="en"]');
+    const logMark = await brandCrossInside(crossPage);
+    record('changelog brand cross stays inside the mark at ' + width + 'px', crossContained(logMark), JSON.stringify(logMark));
+    await crossCtx.close();
+  }
+
   mkdirSync('/opt/cursor/artifacts', { recursive: true });
   const shot = await browser.newContext({ locale: 'ja-JP', viewport: { width: 1280, height: 800 }, deviceScaleFactor: 3 });
   const shotPage = await shot.newPage();
@@ -346,12 +401,18 @@ export async function runKofiChecks({ browser, record, base }) {
   const logShot = await browser.newContext({ locale: 'en-US', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const logShotPage = await logShot.newPage();
   await logShotPage.goto(base.replace('index.html', 'changelog.html'));
-  await logShotPage.waitForSelector('.cl-langs a[data-sponsor-link]');
+  await logShotPage.waitForSelector('.cl-head .brand-mark');
   await logShotPage.click('[data-lang="en"]');
-  await logShotPage.setViewportSize({ width: 390, height: 844 });
-  await logShotPage.locator('.cl-langs').screenshot({ path: '/opt/cursor/artifacts/kofi-changelog-en-390.png' });
-  await logShotPage.setViewportSize({ width: 320, height: 700 });
-  await logShotPage.locator('.cl-langs').screenshot({ path: '/opt/cursor/artifacts/kofi-changelog-en-320.png' });
+  async function shootHeader(width, file) {
+    await logShotPage.setViewportSize({ width, height: 844 });
+    const clip = await logShotPage.evaluate(() => {
+      const langs = document.querySelector('.cl-langs').getBoundingClientRect();
+      return { x: 0, y: 0, width: window.innerWidth, height: Math.ceil(langs.bottom + 12) };
+    });
+    await logShotPage.screenshot({ path: file, clip });
+  }
+  await shootHeader(390, '/opt/cursor/artifacts/kofi-changelog-en-390.png');
+  await shootHeader(320, '/opt/cursor/artifacts/kofi-changelog-en-320.png');
   await logShot.close();
 }
 
