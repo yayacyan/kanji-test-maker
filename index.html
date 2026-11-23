@@ -28,9 +28,12 @@
           </div>
         </div>
         <div class="header-actions">
-          <div class="lang-switch" role="group" aria-label="Language">
-            <button type="button" data-set-lang="ja">日本語</button>
-            <button type="button" data-set-lang="en">English</button>
+          <div class="lang-switch">
+            <div role="group" aria-label="Language">
+              <button type="button" data-set-lang="ja">日本語</button>
+              <button type="button" data-set-lang="en">English</button>
+            </div>
+            <a class="sponsor-switch" data-sponsor data-sponsor-link href="https://ko-fi.com/kanjicoffee" target="_blank" rel="noopener noreferrer" data-i18n="sponsor" data-i18n-aria="sponsor-label" aria-label="役に立ったらコーヒー1杯で応援 ☕" hidden>☕ 応援</a>
           </div>
           <span id="saveState" class="save-state" aria-live="polite" data-i18n="save-idle">この端末に自動保存</span>
           <button id="printBtn" class="primary-btn print-btn" type="button"><span data-i18n="print">印刷 / PDF</span><small class="print-sub">問題用紙</small></button>
@@ -479,10 +482,6 @@
       </nav>
 
       <footer class="site-footer">
-        <p class="sponsor-line" data-sponsor hidden>
-          <span data-i18n="sponsor-note">この道具が役に立ったら、制作を</span>
-          <a data-sponsor-link href="#" target="_blank" rel="noopener" data-i18n="sponsor">応援する</a>
-        </p>
         <a href="changelog.html" data-i18n="changelog">更新履歴 ／ Changelog ／ 更新日誌</a>
         <!-- 筆順練習プリントで使っているデータの出典。KanjiVG は自分の著作権表示に記載して
              公式サイトへリンクすること、KANJIDIC2（EDRDG）は表示する画面ごとに記載することが

@@ -12,13 +12,20 @@
       .cl-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 0.88rem; font-weight: 600; }
       .cl-back:hover { color: var(--ink); }
       .cl-head { margin: 18px 0 6px; display: flex; align-items: center; gap: 12px; }
-      .cl-head .brand-mark { position: static; }
       .cl-title { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.02em; }
       .cl-sub { margin: 0 0 22px; color: var(--muted); font-size: 0.92rem; }
-      .cl-langs { display: flex; gap: 8px; margin-bottom: 26px; }
+      .cl-langs { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin-bottom: 26px; }
+      .cl-lang-set { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; }
       .cl-lang-btn {
-        min-height: 44px; padding: 0 18px; border-radius: 4px; border: 1px solid var(--line);
-        background: var(--surface); color: var(--muted); font-weight: 700; font-size: 0.92rem; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+        flex: 0 0 auto; min-height: 44px; height: 44px; margin: 0; padding: 0 18px; border-radius: 4px; border: 1px solid var(--line);
+        background: var(--surface); color: var(--muted); font-weight: 700; font-size: 0.92rem; line-height: 1.6;
+        white-space: nowrap; cursor: pointer; text-decoration: none; appearance: none; -webkit-appearance: none;
+      }
+      a.cl-lang-btn:hover, a.cl-lang-btn:focus { color: var(--muted); text-decoration: none; }
+      @media (max-width: 520px) {
+        .cl-langs, .cl-lang-set { gap: 4px; }
+        .cl-lang-btn { padding: 0 8px; font-size: 0.82rem; height: 40px; min-height: 40px; }
       }
       .cl-lang-btn.is-active { background: var(--primary); color: #fff; border-color: var(--primary); }
       .cl-entry { padding: 18px 0; border-top: 1px solid var(--line); }
@@ -30,8 +37,6 @@
       .cl-lang-block { display: none; }
       .cl-lang-block.is-active { display: block; }
       .cl-foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.84rem; color: var(--faint); }
-      .cl-sponsor { margin: 0 0 16px; color: var(--faint); font-size: 0.88rem; line-height: 1.6; }
-      .cl-sponsor a { color: var(--muted); font-weight: 700; text-underline-offset: 2px; }
     </style>
   </head>
   <body class="changelog-body">
@@ -45,18 +50,17 @@
         </div>
       </div>
 
-      <div class="cl-langs" role="group" aria-label="言語 / Language / 語言">
-        <button type="button" class="cl-lang-btn" data-lang="ja">日本語</button>
-        <button type="button" class="cl-lang-btn" data-lang="en">English</button>
-        <button type="button" class="cl-lang-btn" data-lang="zh">中文</button>
+      <div class="cl-langs">
+        <div class="cl-lang-set" role="group" aria-label="言語 / Language / 語言">
+          <button type="button" class="cl-lang-btn" data-lang="ja">日本語</button>
+          <button type="button" class="cl-lang-btn" data-lang="en">English</button>
+          <button type="button" class="cl-lang-btn" data-lang="zh">中文</button>
+        </div>
+        <a class="cl-lang-btn sponsor-switch" data-sponsor data-sponsor-link href="https://ko-fi.com/kanjicoffee" target="_blank" rel="noopener noreferrer" data-sponsor-label aria-label="役に立ったらコーヒー1杯で応援 ☕" hidden>☕ 応援</a>
       </div>
 
-      <p class="cl-sponsor" data-sponsor hidden>
-        <span data-sponsor-note></span><a data-sponsor-link href="#" target="_blank" rel="noopener" data-sponsor-label>応援する</a>
-      </p>
-
       <!--
-        応援リンクを公開したときだけ、各言語の先頭に出す下書きです。いまは出しません。
+        応援リンクはサイトに出しています。更新履歴の本文へ移す文は、公開の承認のあとです。いまは各言語の先頭には出しません。
         ja: この道具を応援できるようにしました。
         en: You can now support this tool.
         zh: 現在可以贊助這個工具。
@@ -457,9 +461,9 @@
         var BACK = { ja: 'サイトに戻る', en: 'Back to the site', zh: '回到網站' };
         var SUB = { ja: '更新履歴', en: 'Changelog', zh: '更新日誌' };
         var SPONSOR = {
-          ja: { note: 'この道具が役に立ったら、制作を', link: '応援する' },
-          en: { note: 'If this tool helps, you can ', link: 'support it' },
-          zh: { note: '如果這個工具有幫到你，可以', link: '贊助一下' }
+          ja: { text: '☕ 応援', label: '役に立ったらコーヒー1杯で応援 ☕' },
+          en: { text: '☕ Support', label: 'Enjoying it? Buy me a coffee ☕' },
+          zh: { text: '☕ 贊助', label: '覺得好用的話，請我喝杯咖啡 ☕' }
         };
         function setLang(lang) {
           document.querySelectorAll('.cl-lang-block').forEach(function (el) {
@@ -471,16 +475,17 @@
           document.querySelector('[data-t="footnote"]').textContent = FOOT[lang];
           document.querySelector('[data-t="back"]').textContent = BACK[lang];
           document.querySelector('[data-t="subtitle"]').textContent = SUB[lang];
+          var link = document.querySelector('[data-sponsor-link]');
           var copy = SPONSOR[lang] || SPONSOR.ja;
-          var note = document.querySelector('[data-sponsor-note]');
-          var label = document.querySelector('[data-sponsor-label]');
-          if (note) note.textContent = copy.note;
-          if (label) label.textContent = copy.link;
+          if (link) {
+            link.textContent = copy.text;
+            link.setAttribute('aria-label', copy.label);
+          }
           if (window.KanjiConfig) window.KanjiConfig.applySponsor(document);
-          document.documentElement.lang = lang;
+          document.documentElement.lang = lang === 'zh' ? 'zh-TW' : lang;
           try { localStorage.setItem('kanji-test-maker-changelog-lang', lang); } catch (error) { /* 保存できなくても表示は切り替わる */ }
         }
-        document.querySelectorAll('.cl-lang-btn').forEach(function (b) {
+        document.querySelectorAll('.cl-lang-btn[data-lang]').forEach(function (b) {
           b.addEventListener('click', function () { setLang(b.dataset.lang); });
         });
         var saved = 'ja';

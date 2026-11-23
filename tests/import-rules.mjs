@@ -64,7 +64,7 @@ export function runImportRuleChecks(record) {
   });
   record('service worker cache version moved past the notebook build',
     !/2026-11-05-notebook-2/.test(files.find((f) => f.name === 'sw.js').text) &&
-    /const VERSION = '2026-11-15-v2a'/.test(files.find((f) => f.name === 'sw.js').text));
+    /const VERSION = '2026-11-23-v1'/.test(files.find((f) => f.name === 'sw.js').text));
 
   const KI = loadImport();
   record('import module no longer exports an OCR provider', !KI.OCR_PROVIDERS && typeof KI.runOcr !== 'function');
