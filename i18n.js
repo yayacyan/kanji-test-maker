@@ -219,7 +219,8 @@
     'tab-preview': { ja: 'プレビュー', en: 'Preview' },
     'tab-answer': { ja: '解答', en: 'Answers' },
     'changelog': { ja: '更新履歴 ／ Changelog ／ 更新日誌', en: 'Changelog' },
-    'sponsor': {
+    'sponsor': { ja: '☕ 応援', en: '☕ Support', zh: '☕ 贊助' },
+    'sponsor-label': {
       ja: '役に立ったらコーヒー1杯で応援 ☕',
       en: 'Enjoying it? Buy me a coffee ☕',
       zh: '覺得好用的話，請我喝杯咖啡 ☕'

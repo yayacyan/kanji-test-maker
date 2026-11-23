@@ -29,7 +29,10 @@
     scope.querySelectorAll('[data-sponsor]').forEach(function (el) {
       if (show) el.removeAttribute('hidden');
       else el.setAttribute('hidden', '');
-      el.querySelectorAll('a[data-sponsor-link]').forEach(function (a) { a.href = url || '#'; });
+      var links = [];
+      if (el.matches && el.matches('a[data-sponsor-link]')) links.push(el);
+      if (el.querySelectorAll) el.querySelectorAll('a[data-sponsor-link]').forEach(function (a) { links.push(a); });
+      links.forEach(function (a) { a.href = url || '#'; });
     });
     var screen = document.getElementById('supportScreen');
     if (screen) {
