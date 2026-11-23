@@ -31,7 +31,8 @@
       .cl-lang-block.is-active { display: block; }
       .cl-foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.84rem; color: var(--faint); }
       .cl-sponsor { margin: 0 0 16px; color: var(--faint); font-size: 0.88rem; line-height: 1.6; }
-      .cl-sponsor a { color: var(--muted); font-weight: 700; text-underline-offset: 2px; }
+      .cl-sponsor a { color: var(--primary); font-weight: 700; text-underline-offset: 3px; }
+      .cl-sponsor a:hover { color: var(--primary-hover); }
     </style>
   </head>
   <body class="changelog-body">
@@ -52,18 +53,18 @@
       </div>
 
       <p class="cl-sponsor" data-sponsor hidden>
-        <span data-sponsor-note></span><a data-sponsor-link href="#" target="_blank" rel="noopener" data-sponsor-label>応援する</a>
+        <span data-sponsor-note></span><a data-sponsor-link href="https://ko-fi.com/kanjicoffee" target="_blank" rel="noopener noreferrer" data-sponsor-label>役に立ったらコーヒー1杯で応援 ☕</a>
       </p>
-
-      <!--
-        応援リンクを公開したときだけ、各言語の先頭に出す下書きです。いまは出しません。
-        ja: この道具を応援できるようにしました。
-        en: You can now support this tool.
-        zh: 現在可以贊助這個工具。
-      -->
 
       <!-- 日本語 -->
       <div class="cl-lang-block" data-lang-block="ja">
+        <div class="cl-entry">
+          <span class="cl-date">2026-11-23</span>
+          <h2>応援できるようにしました</h2>
+          <ul>
+            <li>この道具を応援できるようにしました。</li>
+          </ul>
+        </div>
         <div class="cl-entry">
           <span class="cl-date">2026-11-15</span>
           <h2>写真からの出題を、自分で開くAIにまとめました</h2>
@@ -192,6 +193,13 @@
       <!-- English -->
       <div class="cl-lang-block" data-lang-block="en">
         <div class="cl-entry">
+          <span class="cl-date">2026-11-23</span>
+          <h2>You can support this tool</h2>
+          <ul>
+            <li>You can now support this tool.</li>
+          </ul>
+        </div>
+        <div class="cl-entry">
           <span class="cl-date">2026-11-15</span>
           <h2>Photos now go to an AI you open yourself</h2>
           <ul>
@@ -318,6 +326,13 @@
 
       <!-- 繁體中文 -->
       <div class="cl-lang-block" data-lang-block="zh">
+        <div class="cl-entry">
+          <span class="cl-date">2026-11-23</span>
+          <h2>可以贊助這個工具</h2>
+          <ul>
+            <li>現在可以贊助這個工具。</li>
+          </ul>
+        </div>
         <div class="cl-entry">
           <span class="cl-date">2026-11-15</span>
           <h2>從照片做題，改為帶到自己開的 AI</h2>
@@ -457,9 +472,9 @@
         var BACK = { ja: 'サイトに戻る', en: 'Back to the site', zh: '回到網站' };
         var SUB = { ja: '更新履歴', en: 'Changelog', zh: '更新日誌' };
         var SPONSOR = {
-          ja: { note: 'この道具が役に立ったら、制作を', link: '応援する' },
-          en: { note: 'If this tool helps, you can ', link: 'support it' },
-          zh: { note: '如果這個工具有幫到你，可以', link: '贊助一下' }
+          ja: { note: '', link: '役に立ったらコーヒー1杯で応援 ☕' },
+          en: { note: '', link: 'Enjoying it? Buy me a coffee ☕' },
+          zh: { note: '', link: '覺得好用的話，請我喝杯咖啡 ☕' }
         };
         function setLang(lang) {
           document.querySelectorAll('.cl-lang-block').forEach(function (el) {
