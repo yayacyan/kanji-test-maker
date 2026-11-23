@@ -77,6 +77,38 @@ export function runKofiStaticChecks(record) {
   record('the print area markup does not include the support link', !/#printArea[^>]*>[\s\S]*ko-fi/i.test(index));
 }
 
+async function alignDelta(page, linkSelector, buttonSelector) {
+  return page.evaluate(({ linkSelector, buttonSelector }) => {
+    function metrics(el) {
+      const box = el.getBoundingClientRect();
+      const textNode = [...el.childNodes].find((node) => node.nodeType === Node.TEXT_NODE);
+      const holder = document.createElement('span');
+      holder.style.cssText = 'display:inline;line-height:inherit;padding:0;margin:0;border:0';
+      textNode.parentNode.insertBefore(holder, textNode);
+      holder.appendChild(textNode);
+      const probe = document.createElement('span');
+      probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;padding:0;margin:0;border:0';
+      holder.appendChild(probe);
+      const baseline = probe.getBoundingClientRect().bottom;
+      const text = holder.getBoundingClientRect();
+      holder.parentNode.insertBefore(textNode, holder);
+      holder.remove();
+      const round = (n) => Math.round(n * 100) / 100;
+      return { top: round(box.top), bottom: round(box.bottom), textTop: round(text.top), textBottom: round(text.bottom), baseline: round(baseline) };
+    }
+    const link = document.querySelector(linkSelector);
+    const button = document.querySelector(buttonSelector);
+    const linkBox = metrics(link);
+    const buttonBox = metrics(button);
+    const delta = {};
+    Object.keys(linkBox).forEach((key) => { delta[key] = Math.round((linkBox[key] - buttonBox[key]) * 100) / 100; });
+    const centered = Math.abs((linkBox.baseline - linkBox.top) - (buttonBox.baseline - buttonBox.top)) <= 0.5 &&
+      Math.abs((linkBox.bottom - linkBox.top) - (buttonBox.bottom - buttonBox.top)) <= 0.5;
+    const sameRow = Math.abs(delta.top) <= 0.5 && Math.abs(delta.bottom) <= 0.5 && Math.abs(delta.baseline) <= 0.5;
+    return { centered, sameRow, delta };
+  }, { linkSelector, buttonSelector });
+}
+
 async function linkFacts(page) {
   return page.evaluate(() => {
     const link = document.querySelector('header a[data-sponsor-link]');
@@ -127,6 +159,8 @@ export async function runKofiChecks({ browser, record, base }) {
       Object.keys(link.style).length === 0 && !link.wrapped && !link.printOff && !link.pageScroll,
     JSON.stringify(link)
   );
+  let align = await alignDelta(page, 'header a[data-sponsor-link]', '.lang-switch [data-set-lang="en"]');
+  record('desktop Japanese support text shares the English button baseline', align.centered && align.sameRow, JSON.stringify(align.delta));
 
   await page.click('#generateBtn');
   await page.waitForSelector('#printArea .paper', { state: 'attached' });
@@ -151,6 +185,8 @@ export async function runKofiChecks({ browser, record, base }) {
       !link.wrapped && !link.printOff,
     link ? link.text + ' / ' + link.aria : 'missing'
   );
+  align = await alignDelta(page, 'header a[data-sponsor-link]', '.lang-switch [data-set-lang="en"]');
+  record('desktop English support text shares the English button baseline', align.centered && align.sameRow, JSON.stringify(align.delta));
 
   await page.setViewportSize({ width: 390, height: 844 });
   link = await linkFacts(page);
@@ -159,6 +195,8 @@ export async function runKofiChecks({ browser, record, base }) {
     !!link && !link.wrapped && !link.printOff && !link.linkOff && !link.pageScroll,
     JSON.stringify(link && { wrapped: link.wrapped, printOff: link.printOff, linkOff: link.linkOff, pageScroll: link.pageScroll })
   );
+  align = await alignDelta(page, 'header a[data-sponsor-link]', '.lang-switch [data-set-lang="en"]');
+  record('mobile English support text shares the English button baseline', align.centered && align.sameRow, JSON.stringify(align.delta));
   await page.click('[data-set-lang="ja"]');
   await page.setViewportSize({ width: 375, height: 812 });
   link = await linkFacts(page);
@@ -167,6 +205,8 @@ export async function runKofiChecks({ browser, record, base }) {
     !!link && link.text === LABEL.ja && !link.wrapped && !link.printOff && !link.linkOff && !link.pageScroll,
     JSON.stringify(link && { text: link.text, wrapped: link.wrapped, printOff: link.printOff, pageScroll: link.pageScroll })
   );
+  align = await alignDelta(page, 'header a[data-sponsor-link]', '.lang-switch [data-set-lang="en"]');
+  record('mobile Japanese support text shares the English button baseline', align.centered && align.sameRow, JSON.stringify(align.delta));
 
   await page.evaluate(() => {
     window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android' };
@@ -228,6 +268,10 @@ export async function runKofiChecks({ browser, record, base }) {
       };
     });
   }
+  async function recordChangelogAlign(name) {
+    const row = await alignDelta(logPage, '.cl-langs a[data-sponsor-link]', '.cl-lang-btn[data-lang="en"]');
+    record(name, row.centered && row.sameRow, JSON.stringify(row.delta));
+  }
   const jaLog = await changelogLabel();
   record(
     'changelog shows the short Japanese button beside the languages',
@@ -236,9 +280,14 @@ export async function runKofiChecks({ browser, record, base }) {
       jaLog.lang === 'ja' && Object.keys(jaLog.style).length === 0,
     JSON.stringify(jaLog)
   );
+  await recordChangelogAlign('changelog Japanese support text shares the English button baseline');
   await logPage.click('[data-lang="en"]');
   const enLog = await changelogLabel();
   record('changelog shows the short English button', enLog.text === LABEL.en && enLog.aria === FULL.en && enLog.lang === 'en', enLog.text);
+  await recordChangelogAlign('changelog English support text shares the English button baseline');
+  await logPage.setViewportSize({ width: 390, height: 844 });
+  const mobileLog = await alignDelta(logPage, '.cl-langs a[data-sponsor-link]', '.cl-lang-btn[data-lang="en"]');
+  record('changelog mobile support text is centered like the English button', mobileLog.centered, JSON.stringify(mobileLog.delta));
   await logPage.click('[data-lang="zh"]');
   const zhLog = await changelogLabel();
   record(
@@ -247,24 +296,32 @@ export async function runKofiChecks({ browser, record, base }) {
       !SIMPLIFIED.some((text) => (zhLog.text + zhLog.aria).includes(text)),
     zhLog.text + ' / ' + zhLog.aria
   );
+  await recordChangelogAlign('changelog Traditional Chinese support text shares the English button baseline');
   await log.close();
 
   mkdirSync('/opt/cursor/artifacts', { recursive: true });
-  const shot = await browser.newContext({ locale: 'ja-JP', viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+  const shot = await browser.newContext({ locale: 'ja-JP', viewport: { width: 1280, height: 800 }, deviceScaleFactor: 3 });
   const shotPage = await shot.newPage();
   await shotPage.goto(base);
   await shotPage.waitForSelector('header a[data-sponsor-link]');
-  await shotPage.locator('.topbar').screenshot({ path: '/opt/cursor/artifacts/kofi-header-desktop.png' });
+  await shotPage.locator('.lang-switch').screenshot({ path: '/opt/cursor/artifacts/kofi-align-desktop.png' });
   await shot.close();
 
-  const phone = await browser.newContext({ locale: 'ja-JP', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const phone = await browser.newContext({ locale: 'ja-JP', viewport: { width: 390, height: 844 }, deviceScaleFactor: 3 });
   const phonePage = await phone.newPage();
   await phonePage.goto(base);
   await phonePage.waitForSelector('header a[data-sponsor-link]');
-  await phonePage.locator('.topbar').screenshot({ path: '/opt/cursor/artifacts/kofi-header-mobile.png' });
+  await phonePage.locator('.lang-switch').screenshot({ path: '/opt/cursor/artifacts/kofi-align-mobile.png' });
   await phonePage.click('[data-set-lang="en"]');
-  await phonePage.locator('.topbar').screenshot({ path: '/opt/cursor/artifacts/kofi-header-mobile-en.png' });
+  await phonePage.locator('.lang-switch').screenshot({ path: '/opt/cursor/artifacts/kofi-align-mobile-en.png' });
   await phone.close();
+
+  const logShot = await browser.newContext({ locale: 'ja-JP', viewport: { width: 800, height: 700 }, deviceScaleFactor: 3 });
+  const logShotPage = await logShot.newPage();
+  await logShotPage.goto(base.replace('index.html', 'changelog.html'));
+  await logShotPage.waitForSelector('.cl-langs a[data-sponsor-link]');
+  await logShotPage.locator('.cl-langs').screenshot({ path: '/opt/cursor/artifacts/kofi-align-changelog.png' });
+  await logShot.close();
 }
 
 async function standalone() {

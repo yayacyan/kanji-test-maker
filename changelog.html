@@ -18,10 +18,11 @@
       .cl-langs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 26px; }
       .cl-lang-set { display: flex; flex-wrap: wrap; gap: 8px; }
       .cl-lang-btn {
-        min-height: 44px; padding: 0 18px; border-radius: 4px; border: 1px solid var(--line);
-        background: var(--surface); color: var(--muted); font-weight: 700; font-size: 0.92rem; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+        min-height: 44px; height: 44px; margin: 0; padding: 0 18px; border-radius: 4px; border: 1px solid var(--line);
+        background: var(--surface); color: var(--muted); font-weight: 700; font-size: 0.92rem; line-height: 1.6;
+        white-space: nowrap; cursor: pointer; text-decoration: none; appearance: none; -webkit-appearance: none;
       }
-      a.cl-lang-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
       a.cl-lang-btn:hover, a.cl-lang-btn:focus { color: var(--muted); text-decoration: none; }
       .cl-lang-btn.is-active { background: var(--primary); color: #fff; border-color: var(--primary); }
       .cl-entry { padding: 18px 0; border-top: 1px solid var(--line); }
