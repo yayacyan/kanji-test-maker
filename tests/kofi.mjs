@@ -207,6 +207,22 @@ export async function runKofiChecks({ browser, record, base }) {
   );
   align = await alignDelta(page, 'header a[data-sponsor-link]', '.lang-switch [data-set-lang="en"]');
   record('mobile Japanese support text shares the English button baseline', align.centered && align.sameRow, JSON.stringify(align.delta));
+  for (const width of [320, 375, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const lang of ['ja', 'en']) {
+      await page.click(`[data-set-lang="${lang}"]`);
+      const row = await alignDelta(page, 'header a[data-sponsor-link]', '.lang-switch [data-set-lang="en"]');
+      const fit = await page.evaluate(() => ({
+        scroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        printRight: document.getElementById('printBtn').getBoundingClientRect().right
+      }));
+      record(
+        'header ' + lang + ' support stays on the language row at ' + width + 'px',
+        row.centered && row.sameRow && fit.scroll <= 1 && fit.printRight <= width + 1,
+        JSON.stringify({ delta: row.delta, fit })
+      );
+    }
+  }
 
   await page.evaluate(() => {
     window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android' };
@@ -285,9 +301,20 @@ export async function runKofiChecks({ browser, record, base }) {
   const enLog = await changelogLabel();
   record('changelog shows the short English button', enLog.text === LABEL.en && enLog.aria === FULL.en && enLog.lang === 'en', enLog.text);
   await recordChangelogAlign('changelog English support text shares the English button baseline');
-  await logPage.setViewportSize({ width: 390, height: 844 });
-  const mobileLog = await alignDelta(logPage, '.cl-langs a[data-sponsor-link]', '.cl-lang-btn[data-lang="en"]');
-  record('changelog mobile support text is centered like the English button', mobileLog.centered, JSON.stringify(mobileLog.delta));
+  for (const width of [320, 375, 390]) {
+    await logPage.setViewportSize({ width, height: 844 });
+    for (const lang of ['ja', 'en', 'zh']) {
+      await logPage.click(`[data-lang="${lang}"]`);
+      const row = await alignDelta(logPage, '.cl-langs a[data-sponsor-link]', '.cl-lang-btn[data-lang="en"]');
+      const scroll = await logPage.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      record(
+        'changelog ' + lang + ' support stays on the language row at ' + width + 'px',
+        row.centered && row.sameRow && scroll <= 1,
+        JSON.stringify({ delta: row.delta, scroll })
+      );
+    }
+  }
+  await logPage.setViewportSize({ width: 800, height: 700 });
   await logPage.click('[data-lang="zh"]');
   const zhLog = await changelogLabel();
   record(
@@ -316,11 +343,15 @@ export async function runKofiChecks({ browser, record, base }) {
   await phonePage.locator('.lang-switch').screenshot({ path: '/opt/cursor/artifacts/kofi-align-mobile-en.png' });
   await phone.close();
 
-  const logShot = await browser.newContext({ locale: 'ja-JP', viewport: { width: 800, height: 700 }, deviceScaleFactor: 3 });
+  const logShot = await browser.newContext({ locale: 'en-US', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const logShotPage = await logShot.newPage();
   await logShotPage.goto(base.replace('index.html', 'changelog.html'));
   await logShotPage.waitForSelector('.cl-langs a[data-sponsor-link]');
-  await logShotPage.locator('.cl-langs').screenshot({ path: '/opt/cursor/artifacts/kofi-align-changelog.png' });
+  await logShotPage.click('[data-lang="en"]');
+  await logShotPage.setViewportSize({ width: 390, height: 844 });
+  await logShotPage.locator('.cl-langs').screenshot({ path: '/opt/cursor/artifacts/kofi-changelog-en-390.png' });
+  await logShotPage.setViewportSize({ width: 320, height: 700 });
+  await logShotPage.locator('.cl-langs').screenshot({ path: '/opt/cursor/artifacts/kofi-changelog-en-320.png' });
   await logShot.close();
 }
 
